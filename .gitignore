@@ -1,0 +1,32 @@
+# dependências e saídas de build
+node_modules/
+build/
+dist/
+*.zip
+
+# módulo privado (nunca vai para o repositório público)
+private/
+
+# segredos e configurações locais
+.env
+.env.*
+!.env.example
+config.json
+*.pem
+*.key
+*.pfx
+
+# logs, temporários e dados de execução
+*.log
+log.txt
+# cópias do código do HaxBall (não são nossas, não podem ser publicadas)
+game-min*.js
+npm-debug.log*
+.DS_Store
+Thumbs.db
+*.tmp
+*.bak
+
+# editor
+.vscode/
+.idea/

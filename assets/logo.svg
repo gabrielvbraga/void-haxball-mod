@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-12 -8 350 136" role="img" aria-label="VOID">
+  <g fill="none" stroke="#ffffff" stroke-width="9" stroke-miterlimit="8">
+    <polyline points="6,10 44,108 82,10"/>
+    <circle cx="142" cy="60" r="45.5"/>
+    <line x1="222" y1="10" x2="222" y2="110"/>
+    <path d="M252 14.5H270a45.5 45.5 0 0 1 0 91H252Z"/>
+  </g>
+  <line x1="112" y1="118" x2="172" y2="2" stroke="#e0212f" stroke-width="8"/>
+</svg>

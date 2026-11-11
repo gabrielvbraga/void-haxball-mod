@@ -1,0 +1,30 @@
+{
+  "name": "void-haxball-mod",
+  "productName": "VOID HaxBall Mod",
+  "version": "1.0.0",
+  "description": "Launcher para HaxBall com interface VOID, bloqueio de anúncios e ferramentas de qualidade de vida.",
+  "main": "src/main.js",
+  "author": "Gabriel Vieira",
+  "license": "MIT",
+  "repository": "",
+  "private": true,
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "electron .",
+    "test": "node tests/patcher.test.js && node tests/main.test.js && node tests/discord.test.js",
+    "check:secrets": "node scripts/check-secrets.js",
+    "check:history": "node scripts/check-secrets.js --history",
+    "build": "node scripts/build.js",
+    "build:private": "node scripts/build.js --private",
+    "pack": "node scripts/pack.js",
+    "dist": "npm run check:secrets && npm test && npm run build && node scripts/verify-build.js && npm run pack",
+    "dist:private": "npm run check:secrets && npm test && npm run build:private && node scripts/verify-build.js --private && npm run pack"
+  },
+  "devDependencies": {
+    "@electron/asar": "^3.2.17",
+    "electron": "^33.4.11",
+    "rcedit": "^4.0.1"
+  }
+}
