@@ -12,7 +12,7 @@
   <img src="docs/preview.png" alt="Menu do VOID HaxBall Mod" width="640">
 </p>
 
-> Projeto pessoal e independente, **não afiliado ao HaxBall**. Desenvolvido por **Gabriel Vieira**. Código aberto sob a [licença MIT](LICENSE).
+> Projeto pessoal e independente, **não afiliado ao HaxBall**. Desenvolvido por **Gabriel Vieira**, com auxílio de IA (Claude). Código aberto sob a [licença MIT](LICENSE).
 
 ---
 
@@ -230,7 +230,9 @@ O código da sala é detectado pela conexão que o jogo abre ao entrar. Se isso 
 
 ## Créditos
 
-Criado e mantido por **Gabriel Vieira**: código, interface e identidade visual VOID.
+Criado e mantido por **Gabriel Vieira**: ideia, direção do projeto, testes no jogo e identidade visual VOID.
+
+O código foi escrito com auxílio de IA ([Claude](https://claude.ai), da Anthropic), com revisão e decisões do autor.
 
 Feito com [Electron](https://www.electronjs.org). O HaxBall é obra dos seus autores e não faz parte deste projeto.
 
