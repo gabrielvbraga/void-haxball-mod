@@ -6,7 +6,7 @@
   "main": "src/main.js",
   "author": "Gabriel Vieira",
   "license": "MIT",
-  "repository": "",
+  "repository": "gabrielvbraga/void-haxball-mod",
   "private": true,
   "engines": {
     "node": ">=18"
