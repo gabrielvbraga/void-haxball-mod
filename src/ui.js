@@ -55,6 +55,10 @@
     'bar.site': ['Esconder o menu do site (News / Play...)', 'Hide the site menu (News / Play...)'], 'bar.sitehint': ['O jogo ocupa a janela inteira.', 'The game fills the whole window.'],
     'm.restart': ['Feche e abra o VOID para aplicar', 'Close and reopen VOID to apply'],
     'ads': ['Bloquear anúncios', 'Block ads'], 'splash': ['Tela de abertura', 'Splash screen'],
+    'bkey': ['Atalho do Chat Bubble', 'Chat Bubble shortcut'], 'bkey.none': ['Nenhum', 'None'], 'bkey.clear': ['Remover', 'Remove'],
+    'bkey.hint': ['Aperte a tecla para ligar ou desligar o balão. Não dispara enquanto você digita no chat.', 'Press the key to turn the bubble on or off. It does not fire while you type in chat.'],
+    'bkey.same': ['Essa tecla já tem outra função. Escolha outra.', 'That key already does something else. Pick another one.'],
+    'm.bubble.on': ['Chat Bubble ligado', 'Chat Bubble on'], 'm.bubble.off': ['Chat Bubble desligado', 'Chat Bubble off'],
     'key': ['Atalho do menu', 'Menu shortcut'], 'key.change': ['Alterar', 'Change'], 'key.press': ['Pressione uma tecla...', 'Press a key...'],
     'auto': ['Mensagem automática', 'Automatic message'], 'auto.ph': ['Uma mensagem (opcional)', 'One message (optional)'],
     'auto.join': ['Enviar ao entrar na sala', 'Send when joining a room'], 'auto.now': ['Enviar agora (Alt+1)', 'Send now (Alt+1)'],
@@ -312,7 +316,9 @@
       sec('chat') + slider('chatFont', 'chat.font', 9, 24) + slider('chatOpacity', 'chat.opacity', 20, 100, 5) +
       sec('filter') + sw('hideJoin', 'filter.join') + chipInput('fplayer', 'filter.players', 'filter.pph') + chipInput('fword', 'filter.words', 'filter.wph') +
       sec('hud') + sw('hideScore', 'hud.score') + sw('hideTimer', 'hud.timer') +
-      sec('overlay') + sw('fpsc', 'fps') + sw('rec', 'rec') + sw('bubble', 'bubble'),
+      sec('overlay') + sw('fpsc', 'fps') + sw('rec', 'rec') + sw('bubble', 'bubble') +
+      '<div class="line"><span class="lbl">' + i18n('bkey') + '</span><kbd id="bkey"></kbd><button class="btn ghost sm" id="chbkey" data-i18n="key.change"></button><button class="btn ghost sm" id="rmbkey" data-i18n="bkey.clear"></button></div>' +
+      '<p class="hint" data-i18n="bkey.hint"></p>',
     quick:
       sec('nav.quick', '<button class="link" id="qedit" type="button"></button>') + '<div class="quick" id="quick"></div><p class="hint" data-i18n="quick.hint"></p>' +
       '<div id="qform" hidden>' + sec('quick.new') + '<div class="row"><input type="text" id="qlabel" maxlength="22" data-ph="label.ph" spellcheck="false" style="flex:.7"><input type="text" id="qcmd" maxlength="140" data-ph="cmd.ph" spellcheck="false"><button class="btn" id="qadd" data-i18n="add"></button></div></div>',
@@ -672,7 +678,9 @@
     $('dcstat').textContent = t('dc.' + (dc.on ? (state.discord || 'connecting') : 'off'));
     $('upd').hidden = $('upddot').hidden = !state.update;
     if (state.update) $('updtxt').textContent = t('upd') + state.update.version;
-    $('key').textContent = state.capturing ? t('key.press') : keyLabel(c.toggleKey);
+    $('key').textContent = state.capturing && state.capturing !== 'bubble' ? t('key.press') : keyLabel(c.toggleKey);
+    $('bkey').textContent = state.capturing === 'bubble' ? t('key.press') : c.bubbleKey ? keyLabel(c.bubbleKey) : t('bkey.none');
+    $('rmbkey').hidden = !c.bubbleKey;
     if (root.activeElement !== $('msg')) $('msg').value = c.autoMsg.text;
     $('onjoin').checked = !!c.autoMsg.onJoin;
     renderStatus();
@@ -843,6 +851,22 @@
   $('sendnow').addEventListener('click', function () {
     saveMsg().then(function () { return api.action('chat'); }).then(function (ok) { toast(t(ok ? 'm.sent' : 'm.sent.fail')); });
   });
+  $('chbkey').addEventListener('click', function () {          // escolhe a tecla do Chat Bubble (Esc cancela)
+    var before = state.config.bubbleKey || '';
+    api.action('captureKey', 'bubble').then(function () {
+      var n = 0, timer = setInterval(function () {
+        refresh().then(function () {
+          if (state.capturing && ++n <= 16) return;
+          clearInterval(timer);
+          if (state.capturing) return;
+          var now = state.config.bubbleKey || '';
+          toast(now && now !== before ? t('m.key') + keyLabel(now) : t('bkey.same'));
+        });
+      }, 500);
+      refresh();
+    });
+  });
+  $('rmbkey').addEventListener('click', function () { api.setConfig({ bubbleKey: '' }).then(refresh); });
   $('chkey').addEventListener('click', function () {
     api.action('captureKey').then(function () {
       var n = 0, timer = setInterval(function () {
@@ -908,7 +932,9 @@
     } catch (e) { }
   }
 
-  window.__hbui = { toggle: toggle, refresh: refresh, go: go, toggleFps: function () { api.setConfig({ fps: !state.config.fps }).then(refresh); } };
+  // chamado pelo app quando a tecla do Chat Bubble é apertada
+  function bubbleKeyed(ok, on) { toast(ok ? t(on ? 'm.bubble.on' : 'm.bubble.off') : t('m.bubble.fail'), 1800); refresh(); }
+  window.__hbui = { toggle: toggle, refresh: refresh, go: go, bubble: bubbleKeyed, toggleFps: function () { api.setConfig({ fps: !state.config.fps }).then(refresh); } };
   go('home');
   refresh().then(function () {
     cleanAds(); layout();

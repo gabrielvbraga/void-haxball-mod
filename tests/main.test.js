@@ -177,6 +177,34 @@ async function test(name, fn) {
     assert.strictEqual(M.config.history.length, 0);
   });
 
+  console.log('Chat Bubble pela tecla');
+  await test('a tecla escolhida liga e desliga o Chat Bubble, menos enquanto você digita', async () => {
+    const wait = () => new Promise((r) => setTimeout(r, 20));
+    const press = async (code, extra) => { key('keyDown', code, extra); await wait(); key('keyUp', code); };
+    await H.ipc.action(trusted, 'captureKey', 'bubble'); assert.strictEqual((await H.ipc['state:get'](trusted)).capturing, 'bubble');
+    key('keyDown', 'KeyB'); key('keyUp', 'KeyB');
+    let st = await H.ipc['state:get'](trusted); assert.strictEqual(st.config.bubbleKey, 'KeyB'); assert.strictEqual(st.capturing, false);
+    game.bubble = false; await H.ipc.action(trusted, 'bubble', false);
+    await press('KeyB'); assert.strictEqual(game.bubble, true); assert.ok(H.ui.some((c) => c.includes('__hbui.bubble(true,true)')));
+    await press('KeyB'); assert.strictEqual(game.bubble, false);
+    await press('KeyB', { control: true }); assert.strictEqual(game.bubble, false);          // Ctrl+B não conta
+    await press('KeyB', { isAutoRepeat: true }); assert.strictEqual(game.bubble, false);     // tecla segurada não fica alternando
+    const orig = gameFrame.executeJavaScript;                                               // digitando no chat: a tecla só escreve
+    gameFrame.executeJavaScript = async (c) => (c.includes('activeElement') ? true : orig(c));
+    await press('KeyB'); assert.strictEqual(game.bubble, false);
+    gameFrame.executeJavaScript = orig;
+  });
+  await test('tecla reservada ou igual à do menu é recusada; trocar a do menu para a mesma tecla libera a do Chat Bubble', async () => {
+    for (const code of ['F4', 'Escape', 'ShiftRight']) { await H.ipc.action(trusted, 'captureKey', 'bubble'); key('keyDown', code); key('keyUp', code); }
+    assert.strictEqual((await H.ipc['state:get'](trusted)).config.bubbleKey, 'KeyB');
+    await H.ipc['config:set'](trusted, { bubbleKey: 'KeyZ' }); assert.strictEqual((await H.ipc['state:get'](trusted)).config.bubbleKey, 'KeyB');   // pelo menu só remove
+    await H.ipc.action(trusted, 'captureKey'); key('keyDown', 'KeyB'); key('keyUp', 'KeyB');
+    let st = await H.ipc['state:get'](trusted); assert.strictEqual(st.config.toggleKey, 'KeyB'); assert.strictEqual(st.config.bubbleKey, '');
+    await H.ipc.action(trusted, 'captureKey'); key('keyDown', 'ShiftRight'); key('keyUp', 'ShiftRight');
+    await H.ipc.action(trusted, 'captureKey', 'bubble'); key('keyDown', 'KeyG'); key('keyUp', 'KeyG');
+    await H.ipc['config:set'](trusted, { bubbleKey: '' }); assert.strictEqual((await H.ipc['state:get'](trusted)).config.bubbleKey, '');
+  });
+
   console.log('Chat Bubble pelo menu');
   await test('ligar e desligar pelo menu chega ao jogo', async () => {
     assert.strictEqual(await H.ipc.action(trusted, 'bubble', true), true); assert.strictEqual(game.bubble, true);

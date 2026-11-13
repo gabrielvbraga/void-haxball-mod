@@ -13,7 +13,7 @@ const AD_HOSTS = ['doubleclick.net', 'googlesyndication.com', 'googleadservices.
 
 const DEFAULTS = {
   mode: 'auto', hideAds: true, fps: false, alwaysOnTop: false, zoom: 0,
-  autoMsg: { text: '', onJoin: false }, layout: {}, collapsed: {}, toggleKey: 'ShiftRight', bounds: null,
+  autoMsg: { text: '', onJoin: false }, layout: {}, collapsed: {}, toggleKey: 'ShiftRight', bubbleKey: '', bounds: null,   // bubbleKey: tecla que liga/desliga o Chat Bubble ('' = nenhuma)
   accent: 72, recording: false, history: [],
   lang: 'pt', splash: true, theme: 'red', autoRejoin: false,
   titleBar: true, hideSite: true,                          // barra de título do VOID; esconder o menu do site
@@ -517,6 +517,23 @@ async function setOp(arg) {
   if (ok) await pollRoom().catch(() => { });
   return !!ok;
 }
+// Atalho do Chat Bubble: liga/desliga com uma tecla. Não dispara enquanto você digita (chat, apelido, campos do menu),
+// para a tecla continuar servindo para escrever.
+const TYPING = '(function(){var a=document.activeElement;while(a&&a.shadowRoot&&a.shadowRoot.activeElement)a=a.shadowRoot.activeElement;' +
+  'return !!a&&(/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)||a.isContentEditable===true);})()';
+async function isTyping() {
+  if (!win) return false;
+  const frames = win.webContents.mainFrame.framesInSubtree || [win.webContents.mainFrame];
+  for (const f of frames) { try { if (await f.executeJavaScript(TYPING)) return true; } catch (e) { } }
+  return false;
+}
+async function bubbleHotkey() {
+  if (await isTyping()) return null;
+  const on = !roomState.bubble, ok = await setBubble(on);
+  runUi('window.__hbui&&window.__hbui.bubble&&window.__hbui.bubble(' + (ok ? 'true' : 'false') + ',' + (on ? 'true' : 'false') + ')');
+  return ok;
+}
+const RESERVED_KEYS = ['Escape', 'Enter', 'NumpadEnter', 'Tab', 'F2', 'F3', 'F4', 'F5', 'F11'];   // já têm função no app ou no jogo
 async function setBubble(on) {
   if (!win) return false;
   const frames = win.webContents.mainFrame.framesInSubtree || [win.webContents.mainFrame];
@@ -583,7 +600,7 @@ async function doAction(name, arg) {
     case 'quick': { const q = config.quick[Number(arg)]; return q ? sendChat(q.cmd) : false; }
     case 'profile': return useProfile(config.profiles[Number(arg)]);
     case 'op': return setOp(arg);
-    case 'captureKey': capturingKey = true; return true;
+    case 'captureKey': capturingKey = arg === 'bubble' ? 'bubble' : 'menu'; return true;   // a próxima tecla vira o atalho do menu ou do Chat Bubble
     default: return false;
   }
 }
@@ -653,12 +670,20 @@ function createWindow() {
   // atalhos (valem também com o foco dentro do jogo)
   wc.on('before-input-event', (e, input) => {
     if (input.type === 'keyDown' && capturingKey) {
-      capturingKey = false;
-      if (input.code !== 'Escape') { config.toggleKey = input.code; saveConfig(); }
+      const what = capturingKey; capturingKey = false;
+      if (what === 'bubble') {                                         // tecla repetida ou reservada: fica como estava
+        if (!RESERVED_KEYS.includes(input.code) && input.code !== (config.toggleKey || 'ShiftRight')) { config.bubbleKey = input.code; saveConfig(); }
+      } else if (input.code !== 'Escape') {
+        config.toggleKey = input.code;
+        if (config.bubbleKey === input.code) config.bubbleKey = '';    // uma tecla não pode ter as duas funções
+        saveConfig();
+      }
       e.preventDefault(); return;
     }
-    const tk = config.toggleKey || 'ShiftRight';
+    const tk = config.toggleKey || 'ShiftRight', bk = typeof config.bubbleKey === 'string' ? config.bubbleKey : '';
     if (input.type === 'keyDown') {
+      // atalho do Chat Bubble: sem preventDefault, para a tecla continuar chegando ao jogo e aos campos de texto
+      if (bk && input.code === bk && !input.isAutoRepeat && !input.control && !input.alt && !input.meta) bubbleHotkey().catch(() => { });
       shiftArmed = input.code === tk;                                  // só vale se a tecla for pressionada sozinha
       if (input.code === tk && tk !== 'ShiftRight' && tk !== 'ShiftLeft' && !input.isAutoRepeat) { runUi('window.__hbui&&window.__hbui.toggle()'); e.preventDefault(); return; }
       const k = input.key;
@@ -694,6 +719,7 @@ function sanitizePatch(p) {
   if (!p || typeof p !== 'object') return out;
   if (['auto', 'frozen', 'original'].includes(p.mode) && (p.mode !== 'frozen' || priv.frozen)) out.mode = p.mode;
   if (typeof p.hideAds === 'boolean') out.hideAds = p.hideAds;
+  if (p.bubbleKey === '') out.bubbleKey = '';                                   // pelo menu só dá para REMOVER; definir é pela captura de tecla
   if (typeof p.fps === 'boolean') out.fps = p.fps;
   if (typeof p.recording === 'boolean') out.recording = p.recording;
   if (typeof p.splash === 'boolean') out.splash = p.splash;
