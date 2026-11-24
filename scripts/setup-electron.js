@@ -1,7 +1,7 @@
 // Garante que o Electron certo está instalado em node_modules/electron/dist.
 // Desde o Electron 42, o "npm install" não baixa mais o Electron: ele só seria baixado na primeira vez
 // que o app abrisse. Aqui baixamos na hora, com o mesmo passo a passo que funciona manualmente
-// (baixar o zip oficial com o PowerShell e extrair com Expand-Archive) e com duas conferências:
+// (baixar o zip oficial com o PowerShell e extrair) e com duas conferências:
 //   1. a versão em dist/ precisa ser a mesma do package.json (senão, um Electron antigo esquecido
 //      na pasta seria usado sem ninguém perceber);
 //   2. o zip baixado precisa ter o mesmo SHA-256 publicado pelo próprio Electron (arquivo
@@ -11,6 +11,7 @@ const os = require('os');
 const path = require('path');
 const crypto = require('crypto');
 const { execFileSync } = require('child_process');
+const { unzip } = require('../src/updater');
 
 const root = path.join(__dirname, '..');
 const electronDir = path.join(root, 'node_modules', 'electron');
@@ -87,9 +88,11 @@ function main() {
 
   ok('Extraindo...');
   fs.rmSync(distDir, { recursive: true, force: true });
+  // Extração feita aqui mesmo, pelo extrator do VOID (src/updater.js), e não pelo Expand-Archive: no GitHub
+  // Actions o Windows PowerShell carrega o módulo de zip do PowerShell 7 e o Expand-Archive quebra.
   try {
-    ps("$ProgressPreference='SilentlyContinue'; Expand-Archive -Force -LiteralPath " + q(zip) + ' -DestinationPath ' + q(distDir));
-  } catch (e) { fail('não foi possível extrair o zip do Electron.'); }
+    unzip(fs.readFileSync(zip), distDir);
+  } catch (e) { fail('não foi possível extrair o zip do Electron (' + e.message + ').'); }
 
   if (!fs.existsSync(exe)) {
     fail('o electron.exe não apareceu depois da extração. Se o antivírus removeu o arquivo, restaure-o em ' +
