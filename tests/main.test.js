@@ -10,7 +10,7 @@ process.env.VOID_TEST = '1';
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'void-test-'));
 
 // ---------- Electron simulado ----------
-const H = { handler: null, ready: null, ipc: {}, events: {}, ui: [], loaded: [], perm: null, ws: null, opts: null, windows: [], files: [], reloads: 0, sent: [] };
+const H = { toasts: [], handler: null, ready: null, ipc: {}, events: {}, ui: [], loaded: [], perm: null, ws: null, opts: null, windows: [], files: [], reloads: 0, sent: [] };
 const game = { HBMOD: true, inRoom: false, name: '', bubble: false, pushed: null, profile: null, op: null };   // estado do jogo dentro do iframe
 const gameFrame = {
   url: 'https://html5.haxball.com/game',
@@ -19,12 +19,10 @@ const gameFrame = {
     if (code.includes('roomInfo')) {
       const m = code.match(/H\.setUi\((\{.*?\})\);return/);
       if (m) game.pushed = JSON.parse(m[1]);
-      return { inRoom: game.inRoom, name: game.name, bubble: game.bubble, dropped: game.dropped || '', snd: game.snd || ['kick', 'goal', 'mention'] };
+      return { inRoom: game.inRoom, name: game.name, bubble: game.bubble, dropped: game.dropped || '', notes: (game.notes || []).splice(0) };
     }
     const b = code.match(/setChatBubble\((true|false)\)/);
     if (b) { game.bubble = b[1] === 'true'; return true; }
-    const sd = code.match(/HBMOD\.setSound\("(\w+)",(null|"[^"]*")\)/);
-    if (sd) { if (sd[2] !== 'null') game.sound = [sd[1], JSON.parse(sd[2])]; return true; }
     const pr = code.match(/setProfile\((\{.*\})\)/);
     if (pr) { game.profile = JSON.parse(pr[1]); return true; }
     const op = code.match(/HBMOD\.op\.set\((\{.*?\})\)/);
@@ -43,7 +41,8 @@ const wc = {
   reloadIgnoringCache() { H.reloads++; }, toggleDevTools() { }, mainFrame, executeJavaScript: async (c) => { H.ui.push(c); },
   capturePage: async () => ({ toPNG: () => Buffer.from('png') })
 };
-const win = { webContents: wc, on() { }, loadURL: (u) => H.loaded.push(u), loadFile: (f) => H.files.push(f), show() { }, focus() { }, close() { }, isDestroyed: () => false, setAlwaysOnTop() { }, isFullScreen: () => false, setFullScreen() { }, getBounds: () => ({}) };
+const win = { webContents: wc, on() { }, loadURL: (u) => H.loaded.push(u), loadFile: (f) => H.files.push(f), show() { }, focus() { }, close() { }, isDestroyed: () => false, setAlwaysOnTop() { }, isFullScreen: () => false, setFullScreen() { }, getBounds: () => ({}),
+  isFocused: () => H.focused !== false, isMinimized: () => false, flashFrame(v) { H.flash = v; }, once() { }, restore() { } };
 const electron = {
   app: { whenReady: () => ({ then: (f) => { H.ready = f; } }), on() { }, getPath: () => tmp, quit() { } },
   BrowserWindow: function (o) { H.opts = o; H.windows.push(o); return win; },
@@ -53,6 +52,7 @@ const electron = {
   Menu: { setApplicationMenu() { } },
   dialog: { showOpenDialog: async () => H.pick, showSaveDialog: async () => H.save },
   ipcMain: { handle: (n, f) => { H.ipc[n] = f; }, on: (n, f) => { H.ipc[n] = f; } },
+  Notification: Object.assign(function (o) { this.o = o; this.on = () => { }; this.show = () => H.toasts.push(o); }, { isSupported: () => true }),
   session: { defaultSession: {
     clearCache: async () => { }, setPermissionRequestHandler: (f) => { H.perm = f; },
     webRequest: { onBeforeRequest: (filter, f) => { H.ws = { filter, f }; } }
@@ -177,6 +177,30 @@ async function test(name, fn) {
     assert.strictEqual(M.config.history.length, 0);
   });
 
+  console.log('notificações');
+  await test('notificações: começam desligadas e só aceitam liga/desliga', async () => {
+    assert.deepStrictEqual(M.config.notify, { mention: false, team: false });
+    await H.ipc['config:set'](trusted, { notify: { mention: 'sim', team: 1, outra: true } });
+    assert.deepStrictEqual(M.config.notify, { mention: false, team: false });
+    await H.ipc['config:set'](trusted, { notify: { mention: true } }); assert.deepStrictEqual(M.config.notify, { mention: true, team: false });
+    await H.ipc['config:set'](trusted, { notify: { team: true } }); assert.deepStrictEqual(M.config.notify, { mention: true, team: true });
+  });
+  await test('com o VOID em segundo plano, menção e time viram aviso (no idioma do app) e piscam a barra', async () => {
+    H.toasts.length = 0; H.focused = false; game.inRoom = true; game.name = 'Sala X';
+    game.notes = [{ k: 'mention', text: 'fulano: noonly vem' }, { k: 'team', text: 'blue' }]; await M.pollRoom();
+    assert.strictEqual(H.toasts.length, 2); assert.strictEqual(H.flash, true);
+    assert.strictEqual(H.toasts[0].body, 'fulano: noonly vem'); assert.ok(/Sala X/.test(H.toasts[0].title));
+    assert.strictEqual(H.toasts[1].body, 'Você foi colocado no time azul em Sala X.');
+  });
+  await test('não avisa com o VOID em foco, no modo gravação, com o tipo desligado, nem repetido em 4 s', async () => {
+    H.toasts.length = 0;
+    game.notes = [{ k: 'mention', text: 'de novo' }]; await M.pollRoom(); assert.strictEqual(H.toasts.length, 0);            // 4 s ainda não passaram
+    H.focused = true; game.notes = [{ k: 'team', text: 'red' }, { k: 'hack', text: 'x' }]; await M.pollRoom(); assert.strictEqual(H.toasts.length, 0);
+    H.focused = false; await H.ipc['config:set'](trusted, { recording: true }); game.notes = [{ k: 'team', text: 'red' }]; await M.pollRoom(); assert.strictEqual(H.toasts.length, 0);
+    await H.ipc['config:set'](trusted, { recording: false, notify: { mention: false, team: false } }); game.notes = [{ k: 'team', text: 'red' }]; await M.pollRoom();
+    assert.strictEqual(H.toasts.length, 0); H.focused = true; game.inRoom = false; game.name = ''; await M.pollRoom();
+  });
+
   console.log('Chat Bubble pela tecla');
   await test('a tecla escolhida liga e desliga o Chat Bubble, menos enquanto você digita', async () => {
     const wait = () => new Promise((r) => setTimeout(r, 20));
@@ -229,6 +253,14 @@ async function test(name, fn) {
     await H.ipc['config:set'](trusted, { accent: 'muito', recording: 'sim', mode: 'hack' });
     assert.strictEqual(M.config.accent, 20); assert.strictEqual(M.config.recording, false); assert.strictEqual(M.config.mode, 'auto');
   });
+  await test('tamanho do menu: aceita de 80% a 150% e limita o resto', async () => {
+    assert.strictEqual(M.config.uiScale, 100);
+    await H.ipc['config:set'](trusted, { uiScale: 125 }); assert.strictEqual(M.config.uiScale, 125);
+    await H.ipc['config:set'](trusted, { uiScale: 900 }); assert.strictEqual(M.config.uiScale, 150);
+    await H.ipc['config:set'](trusted, { uiScale: 10 }); assert.strictEqual(M.config.uiScale, 80);
+    await H.ipc['config:set'](trusted, { uiScale: 'grande' }); assert.strictEqual(M.config.uiScale, 80);
+    await H.ipc['config:set'](trusted, { uiScale: 100 });
+  });
   await test('Right Shift sozinho abre o menu; com outra tecla não', async () => {
     H.ui.length = 0; key('keyDown', 'ShiftRight'); key('keyUp', 'ShiftRight');
     assert.ok(H.ui.some((c) => /toggle\(\)/.test(c)));
@@ -246,7 +278,7 @@ async function test(name, fn) {
   });
   await test('o estado entregue à interface inclui sala, paleta e histórico', async () => {
     const st = await H.ipc['state:get'](trusted);
-    assert.ok(st.room && st.palette && Array.isArray(st.config.history) && st.version === '1.0');
+    assert.ok(st.room && st.palette && Array.isArray(st.config.history) && st.version === require('../package.json').version);   // versão vem do package.json
     assert.ok(st.config.game && Array.isArray(st.config.profiles) && Array.isArray(st.config.quick) && st.config.lang === 'pt');
   });
 
@@ -288,14 +320,22 @@ async function test(name, fn) {
     await H.ipc['config:set'](trusted, { game: { flat: true, ground: '#112233', vol: { kick: 30 } } });
     await M.pollRoom();
     const g = game.pushed.game;
-    assert.strictEqual(g.flat, true); assert.strictEqual(g.ground, '#112233');
+    assert.strictEqual(g.field, 'flat'); assert.strictEqual(g.ground, '#112233');
     assert.deepStrictEqual(g.vol, { goal: 100, kick: 30, chat: 100 });
     assert.strictEqual(g.cross, false);
   });
+  await test('estilo do campo: aceita futsal, areia e gelo; arquivo exportado na 1.1 (flat) continua valendo', async () => {
+    await H.ipc['config:set'](trusted, { game: { field: 'sand', ground: '#d6bf8a' } }); assert.strictEqual(M.config.game.field, 'sand');
+    await M.pollRoom(); assert.strictEqual(game.pushed.game.field, 'sand');
+    assert.strictEqual(M.applyImport({ void: 1, game: { flat: true, ground: '#224466' } }), true);
+    assert.strictEqual(M.config.game.field, 'flat'); assert.strictEqual(M.config.game.ground, '#224466');
+    assert.ok(!('flat' in M.config.game));
+    await H.ipc['config:set'](trusted, { game: { field: 'flat', ground: '#112233' } });   // volta ao estado que o próximo teste espera
+  });
   await test('valores inválidos de personalização são ignorados ou limitados', async () => {
-    await H.ipc['config:set'](trusted, { game: { ground: 'red;}', crossColor: '#GGGGGG', crossSize: 9999, chatFont: 3, chatOpacity: -5, flat: 'sim', vol: { goal: 500, x: 1 } } });
+    await H.ipc['config:set'](trusted, { game: { ground: 'red;}', crossColor: '#GGGGGG', crossSize: 9999, chatFont: 3, chatOpacity: -5, flat: 'sim', field: 'lava', vol: { goal: 500, x: 1 } } });
     const g = M.config.game;
-    assert.strictEqual(g.ground, '#112233'); assert.strictEqual(g.crossColor, '#ffffff'); assert.strictEqual(g.flat, true);
+    assert.strictEqual(g.ground, '#112233'); assert.strictEqual(g.crossColor, '#ffffff'); assert.strictEqual(g.field, 'flat');
     assert.strictEqual(g.crossSize, 200); assert.strictEqual(g.chatFont, 10); assert.strictEqual(g.chatOpacity, 20);
     assert.strictEqual(g.vol.goal, 100); assert.ok(!('x' in g.vol));
   });
@@ -354,21 +394,6 @@ async function test(name, fn) {
     H.pick = { canceled: false, filePaths: [out] }; assert.strictEqual(await H.ipc.action(trusted, 'import'), true);
     fs.writeFileSync(out, 'não é json'); assert.strictEqual(await H.ipc.action(trusted, 'import'), false);
     H.pick = { canceled: true, filePaths: [] }; assert.strictEqual(await H.ipc.action(trusted, 'import'), null);
-  });
-  await test('som próprio: copiado para a pasta do app e enviado ao jogo; tipo ou tamanho errado é recusado', async () => {
-    const snd = path.join(tmp, 'meu chute.ogg'); fs.writeFileSync(snd, Buffer.from('OggS-fake'));
-    H.pick = { canceled: false, filePaths: [snd] };
-    assert.strictEqual(await H.ipc.action(trusted, 'sound:pick', 'kick'), true);
-    assert.strictEqual(M.config.sounds.kick.file, 'kick.ogg'); assert.strictEqual(M.config.sounds.kick.name, 'meu chute.ogg');
-    assert.ok(fs.existsSync(path.join(tmp, 'sounds', 'kick.ogg')));
-    game.snd = []; game.sound = null; await M.pollRoom(); await new Promise((r) => setImmediate(r));
-    assert.deepStrictEqual(game.sound, ['kick', Buffer.from('OggS-fake').toString('base64')]);
-    assert.strictEqual(await H.ipc.action(trusted, 'sound:pick', '../x'), false);
-    const exe = path.join(tmp, 'a.exe'); fs.writeFileSync(exe, 'x'); H.pick = { canceled: false, filePaths: [exe] };
-    assert.strictEqual(await H.ipc.action(trusted, 'sound:pick', 'goal'), 'type');
-    const big = path.join(tmp, 'big.wav'); fs.writeFileSync(big, Buffer.alloc(1600000)); H.pick = { canceled: false, filePaths: [big] };
-    assert.strictEqual(await H.ipc.action(trusted, 'sound:pick', 'goal'), 'size');
-    assert.strictEqual(await H.ipc.action(trusted, 'sound:clear', 'kick'), true); assert.ok(!M.config.sounds.kick);
   });
   await test('imagem de fundo: escolher, ler e remover', async () => {
     const img = path.join(tmp, 'fundo.png'); fs.writeFileSync(img, Buffer.from([137, 80, 78, 71])); H.pick = { canceled: false, filePaths: [img] };

@@ -1,11 +1,14 @@
 // VOID HaxBall Mod - processo principal (Electron).
-const { app, BrowserWindow, protocol, net, shell, Menu, ipcMain, session, dialog, nativeTheme } = require('electron');
+const { app, BrowserWindow, protocol, net, shell, Menu, ipcMain, session, dialog, nativeTheme, Notification } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const { spawn } = require('child_process');
 const { patchOfficial } = require('./patcher');
 const { createPresence, APP_ID } = require('./discord');
+const U = require('./updater');
 
-const VERSION = '1.0';
+// versão vem do package.json (antes estava fixa em '1.0' e o menu mostrava v1.0 mesmo na 1.1.0)
+const VERSION = (() => { try { return String(require(path.join(__dirname, '..', 'package.json')).version || '0.0.0'); } catch (e) { return '0.0.0'; } })();
 const START_URL = 'https://www.haxball.com/play';
 const AD_HOSTS = ['doubleclick.net', 'googlesyndication.com', 'googleadservices.com', 'adnxs.com',
   'amazon-adsystem.com', 'adservice.google.com', 'adsafeprotected.com', 'adinplay.com', 'pubmatic.com',
@@ -14,16 +17,16 @@ const AD_HOSTS = ['doubleclick.net', 'googlesyndication.com', 'googleadservices.
 const DEFAULTS = {
   mode: 'auto', hideAds: true, fps: false, alwaysOnTop: false, zoom: 0,
   autoMsg: { text: '', onJoin: false }, layout: {}, collapsed: {}, toggleKey: 'ShiftRight', bubbleKey: '', bounds: null,   // bubbleKey: tecla que liga/desliga o Chat Bubble ('' = nenhuma)
-  accent: 72, recording: false, history: [],
+  accent: 72, uiScale: 100, recording: false, history: [],   // uiScale: tamanho do menu em % (80 a 150)
   lang: 'pt', splash: true, theme: 'red', autoRejoin: false,
   titleBar: true, hideSite: true,                          // barra de título do VOID; esconder o menu do site
+  notify: { mention: false, team: false },                 // notificações do Windows com o VOID em segundo plano
   discord: { on: false, room: true, appId: '' },           // "Jogando HaxBall" no perfil do Discord
   chat: { hideJoin: false, words: [], players: [] },       // filtro do chat (só na sua tela)
   bg: { file: '', dim: 70 },                               // imagem de fundo do menu
-  sounds: {},                                              // sons próprios: { kick|goal|mention: { file, name } }
   // personalização (aplicada dentro do jogo pelo core.js)
   game: {
-    flat: false, ground: '#3d6b45', lineOn: false, lineColor: '#ffffff', ballOn: false, ballColor: '#ffd84a',
+    field: 'original', ground: '#3d6b45', lineOn: false, lineColor: '#ffffff', ballOn: false, ballColor: '#ffd84a',
     cross: false, crossColor: '#ffffff', crossSize: 100, nameSize: 100, hideAvatars: false,
     kickLine: false, kickColor: '#ffffff', kickRange: 160, kickExt: 140, kickRing: false, kickRingColor: '#ffd84a', teamOn: false, teamRed: '#e56e56', teamBlue: '#5689e5',
     vol: { goal: 100, kick: 100, chat: 100 },
@@ -81,10 +84,12 @@ function loadConfig() {
   delete config.quickChat;
   if (!['auto', 'frozen', 'original'].includes(config.mode)) config.mode = 'auto';
   config.accent = clampAccent(config.accent);
+  config.uiScale = clampInt(config.uiScale, 80, 150, 100);
   config.recording = config.recording === true;
   config.history = cleanHistory(config.history);
   config.lang = config.lang === 'en' ? 'en' : 'pt';
   config.splash = config.splash !== false;
+  config.notify = cleanNotify(saved.notify);
   config.game = cleanGame(saved.game, DEFAULTS.game);
   if (saved.game && saved.game.vol && saved.game.vol.crowd != null && saved.game.vol.crowd < config.game.vol.goal) config.game.vol.goal = clampInt(saved.game.vol.crowd, 0, 100, 100);   // 1.4 tinha "torcida" separada
   config.theme = THEME_NAMES.includes(config.theme) ? config.theme : 'red';
@@ -92,7 +97,9 @@ function loadConfig() {
   config.titleBar = config.titleBar !== false; config.hideSite = config.hideSite !== false;
   config.discord = cleanDiscord(saved.discord, DEFAULTS.discord);
   config.chat = cleanChat(saved.chat, DEFAULTS.chat);
-  config.sounds = cleanSounds(saved.sounds);
+  // sons próprios saíram na 1.2.0: apaga a configuração e os arquivos copiados pelas versões anteriores
+  delete config.sounds;
+  try { fs.rmSync(userFile('sounds'), { recursive: true, force: true }); } catch (e) { }
   config.bg = cleanBg(null, saved.bg || DEFAULTS.bg);
   config.profiles = cleanProfiles(saved.profiles);
   config.quick = Array.isArray(saved.quick) ? cleanQuick(saved.quick) : JSON.parse(JSON.stringify(DEFAULTS.quick));
@@ -104,12 +111,15 @@ function loadConfig() {
 const HEX = /^#[0-9a-f]{6}$/i;
 const clampInt = (v, min, max, def) => { v = Math.round(Number(v)); return isFinite(v) ? Math.min(max, Math.max(min, v)) : def; };
 const chars = (t, n) => Array.from(String(t == null ? '' : t).replace(/[\x00-\x1f\x7f]/g, '').trim()).slice(0, n).join('');
+const FIELDS = ['original', 'flat', 'futsal', 'sand', 'ice'];   // estilos do campo
 function cleanGame(g, base) {
   const b = base || config.game, D = DEFAULTS.game, out = {};
   for (const k of Object.keys(D)) out[k] = k === 'vol' ? {} : (typeof b[k] === typeof D[k] ? b[k] : D[k]);
   for (const k of Object.keys(D.vol)) out.vol[k] = clampInt(b.vol && b.vol[k], 0, 100, D.vol[k]);
   if (!g || typeof g !== 'object') return out;
-  for (const k of ['flat', 'lineOn', 'ballOn', 'cross', 'hideAvatars', 'hideScore', 'hideTimer', 'kickLine', 'kickRing', 'teamOn']) if (typeof g[k] === 'boolean') out[k] = g[k];
+  for (const k of ['lineOn', 'ballOn', 'cross', 'hideAvatars', 'hideScore', 'hideTimer', 'kickLine', 'kickRing', 'teamOn']) if (typeof g[k] === 'boolean') out[k] = g[k];
+  if (FIELDS.includes(g.field)) out.field = g.field;
+  else if (typeof g.flat === 'boolean') out.field = g.flat ? 'flat' : (out.field === 'flat' ? 'original' : out.field);   // configurações e arquivos da 1.1
   if (g.kickRange != null) out.kickRange = clampInt(g.kickRange, 40, 1000, out.kickRange);
   if (g.kickExt != null) out.kickExt = clampInt(g.kickExt, 0, 600, out.kickExt);
   for (const k of ['ground', 'lineColor', 'ballColor', 'crossColor', 'kickColor', 'kickRingColor', 'teamRed', 'teamBlue']) if (typeof g[k] === 'string' && HEX.test(g[k])) out[k] = g[k].toLowerCase();
@@ -141,13 +151,7 @@ function cleanChat(c, base) {
   if (Array.isArray(c.players)) out.players = cleanWords(c.players);
   return out;
 }
-const SOUND_SLOTS = ['kick', 'goal', 'mention'];
 const SAFE_FILE = /^[\w-]{1,24}\.[a-z0-9]{2,5}$/;
-function cleanSounds(o) {
-  const out = {};
-  if (o && typeof o === 'object') for (const k of SOUND_SLOTS) if (o[k] && SAFE_FILE.test(o[k].file || '')) out[k] = { file: o[k].file, name: chars(o[k].name, 40) || o[k].file };
-  return out;
-}
 function cleanBg(o, base) {
   const b = base || config.bg || DEFAULTS.bg, out = { file: SAFE_FILE.test(b.file || '') ? b.file : '', dim: clampInt(b.dim, 0, 95, 70) };
   if (o && typeof o === 'object' && o.dim != null) out.dim = clampInt(o.dim, 0, 95, out.dim);
@@ -309,7 +313,7 @@ async function sendChat(text) {
   return ok;
 }
 // Passa a cor e o modo gravação para o jogo e lê o estado da sala (a cada 2,5 s).
-function uiPayload() { return Object.assign(palette(config.accent, config.theme), { hidden: !!config.recording, game: config.game, chat: config.chat }); }
+function uiPayload() { return Object.assign(palette(config.accent, config.theme), { hidden: !!config.recording, game: config.game, chat: config.chat, teamSound: !!config.notify.team }); }
 async function pollRoom() {
   if (!win) return;
   const code = '(function(){var H=window.HBMOD;if(!H||!H.roomInfo)return null;H.setUi(' + JSON.stringify(uiPayload()) + ');return H.roomInfo();})()';
@@ -345,8 +349,60 @@ async function pollRoom() {
   dropped = inRoom ? '' : String(info.dropped || '').slice(0, 120);
   if (dropped && config.autoRejoin && canRejoin() && Date.now() - lastRejoin > 15000 && rejoinTries < 3) { rejoinTries++; log('reentrando na sala (tentativa ' + rejoinTries + ')'); rejoin(); }
   updatePresence();
-  if (gameReady) pushSounds(Array.isArray(info.snd) ? info.snd : []).catch(() => { });
+  if (Array.isArray(info.notes)) info.notes.slice(0, 10).forEach((n) => notifyNote(n, info.name));
   roomState = { inRoom, name: String(info.name || '').slice(0, 60), bubble: !!info.bubble, nick: chars(info.nick, 25), avatar: chars(info.avatar, 2), op };
+}
+// ---------- notificações do Windows ----------
+// O Windows só mostra o aviso no canto da tela para apps com atalho no Menu Iniciar ligado a um
+// AppUserModelID. Como o VOID vem num zip (sem instalador), o atalho é criado quando você liga as
+// notificações. Sem atalho (ex.: "npm start"), o ícone na barra de tarefas pisca do mesmo jeito.
+const AUMID = 'com.gabrielvieira.voidhaxballmod';
+const TOAST_CLSID = '{feaf26b9-5d68-48cd-b1a9-ae0c7d9002de}';
+let aumidSet = false;
+const notifyOn = () => !!(config.notify && (config.notify.mention || config.notify.team));
+function cleanNotify(n) { n = n && typeof n === 'object' ? n : {}; return { mention: n.mention === true, team: n.team === true }; }
+function startMenuLink() { return path.join(app.getPath('appData'), 'Microsoft', 'Windows', 'Start Menu', 'Programs', 'VOID HaxBall Mod.lnk'); }
+function setupNotify() {
+  // aviso de time antes da partida: a lista de times só é atualizada quando o jogo desenha a tela
+  try { if (win && !win.isDestroyed()) win.webContents.setBackgroundThrottling(!config.notify.team); } catch (e) { }
+  // O AppUserModelID só é aplicado DEPOIS de o atalho existir: sem atalho com o mesmo ID, o Windows não acha
+  // o ícone e a barra de tarefas mostra uma folha em branco. No "npm start" (electron.exe) não há atalho,
+  // então ali só o ícone da barra pisca, sem o aviso no canto.
+  if (process.platform !== 'win32' || !notifyOn() || !app.isPackaged || aumidSet) return;
+  let ok = false;
+  try {
+    const lnk = startMenuLink();
+    ok = shell.writeShortcutLink(lnk, fs.existsSync(lnk) ? 'update' : 'create', {
+      target: process.execPath, cwd: path.dirname(process.execPath), icon: process.execPath, iconIndex: 0,
+      description: 'VOID HaxBall Mod', appUserModelId: AUMID, toastActivatorClsid: TOAST_CLSID
+    });
+  } catch (e) { log('atalho no Menu Iniciar: ' + e.message); }
+  if (!ok) { log('não foi possível criar o atalho no Menu Iniciar; as notificações ficam só piscando a barra'); return; }
+  try {
+    app.setAppUserModelId(AUMID); if (app.setToastActivatorCLSID) app.setToastActivatorCLSID(TOAST_CLSID);
+    // a janela também diz ao Windows qual ícone usar, para a barra nunca ficar sem o logo
+    if (win && !win.isDestroyed() && win.setAppDetails) win.setAppDetails({ appId: AUMID, appIconPath: process.execPath, appIconIndex: 0, relaunchCommand: '"' + process.execPath + '"', relaunchDisplayName: 'VOID HaxBall Mod' });
+    aumidSet = true;
+  } catch (e) { log('AppUserModelID: ' + e.message); }
+}
+const lastNote = {};
+function notifyNote(n, room) {
+  if (!n || (n.k !== 'mention' && n.k !== 'team') || !config.notify[n.k]) return;
+  if (config.recording || !win || win.isDestroyed() || (win.isFocused() && !win.isMinimized())) return;   // só com o VOID em segundo plano
+  if (Date.now() - (lastNote[n.k] || 0) < 4000) return;               // no máximo um aviso de cada tipo a cada 4 s
+  lastNote[n.k] = Date.now();
+  const pt = config.lang !== 'en', text = String(n.text || '').slice(0, 160);
+  const body = n.k === 'mention' ? text
+    : pt ? 'Você foi colocado no time ' + (text === 'blue' ? 'azul' : 'vermelho') + (room ? ' em ' + room : '') + '.'
+      : 'You were moved to the ' + (text === 'blue' ? 'blue' : 'red') + ' team' + (room ? ' in ' + room : '') + '.';
+  const title = n.k === 'mention' ? (pt ? 'Citaram você' : 'You were mentioned') + (room ? ' · ' + room : '') : 'VOID HaxBall Mod';
+  try { win.flashFrame(true); win.once('focus', () => { try { win.flashFrame(false); } catch (e) { } }); } catch (e) { }
+  try {
+    if (!Notification || !Notification.isSupported()) return;
+    const toast = new Notification({ title: title.slice(0, 80), body, icon: path.join(root, 'assets', 'icon.png'), silent: true });
+    toast.on('click', () => { try { if (win.isMinimized()) win.restore(); win.show(); win.focus(); } catch (e) { } });
+    toast.show();
+  } catch (e) { log('notificação: ' + e.message); }
 }
 const wasRemoved = (why) => /kick|ban/i.test(why || '');
 function lastRoom() { return lastRoomCode ? config.history.find((r) => r.code === lastRoomCode) || { code: lastRoomCode, name: '' } : config.history.slice().sort((a, b) => b.at - a.at)[0] || null; }
@@ -371,31 +427,6 @@ async function pickFile(title, name, exts, maxBytes) {
   if (fs.statSync(f).size > maxBytes) return { error: 'size' };
   return { path: f, ext, base: path.basename(f) };
 }
-async function pickSound(slot) {
-  if (!SOUND_SLOTS.includes(slot)) return false;
-  const f = await pickFile('VOID', 'Audio', ['ogg', 'wav', 'mp3'], 1500000);
-  if (!f || f.error) return f ? f.error : null;
-  fs.mkdirSync(userFile('sounds'), { recursive: true });
-  for (const old of fs.readdirSync(userFile('sounds'))) if (old.startsWith(slot + '.')) fs.rmSync(userFile('sounds', old), { force: true });
-  fs.copyFileSync(f.path, userFile('sounds', slot + '.' + f.ext));
-  config.sounds[slot] = { file: slot + '.' + f.ext, name: chars(f.base, 40) }; saveConfig();
-  await inGame('window.HBMOD&&HBMOD.setSound?HBMOD.setSound(' + JSON.stringify(slot) + ',null):false');   // o próximo ciclo envia o arquivo novo
-  return true;
-}
-async function clearSound(slot) {
-  if (!SOUND_SLOTS.includes(slot)) return false;
-  delete config.sounds[slot]; saveConfig();
-  await inGame('window.HBMOD&&HBMOD.setSound?HBMOD.setSound(' + JSON.stringify(slot) + ',null):false');
-  return true;
-}
-// envia ao jogo os sons próprios que ele ainda não tem (um por ciclo)
-async function pushSounds(loaded) {
-  const slot = Object.keys(config.sounds).find((k) => !loaded.includes(k));
-  if (!slot) return;
-  let b64;
-  try { b64 = fs.readFileSync(userFile('sounds', config.sounds[slot].file)).toString('base64'); } catch (e) { delete config.sounds[slot]; saveConfig(); return; }
-  await inGame('window.HBMOD&&HBMOD.setSound?HBMOD.setSound(' + JSON.stringify(slot) + ',' + JSON.stringify(b64) + '):false');
-}
 async function pickBg() {
   const f = await pickFile('VOID', 'Image', ['png', 'jpg', 'jpeg', 'webp'], 4000000);
   if (!f || f.error) return f ? f.error : null;
@@ -412,7 +443,7 @@ function bgData() {
 
 // ---------- exportar / importar configurações (um arquivo .json) ----------
 function exportData() {
-  return { void: 1, version: VERSION, accent: config.accent, theme: config.theme, lang: config.lang, game: config.game, chat: config.chat,
+  return { void: 1, version: VERSION, accent: config.accent, uiScale: config.uiScale, theme: config.theme, lang: config.lang, game: config.game, chat: config.chat,
     profiles: config.profiles, quick: config.quick, autoMsg: config.autoMsg, autoRejoin: config.autoRejoin,
     favorites: config.history.filter((r) => r.fav).map((r) => ({ code: r.code, name: r.name })) };
 }
@@ -455,16 +486,82 @@ function isNewer(a, b) {
   for (let i = 0; i < 3; i++) { if ((pa[i] || 0) !== (pb[i] || 0)) return (pa[i] || 0) > (pb[i] || 0); }
   return false;
 }
+const EXE_NAME = 'VOID-HaxBall-Mod.exe';
+// Só instala sozinho a versão PÚBLICA aberta pelo .exe, numa pasta em que dá para escrever.
+// A versão pessoal (com private/) e o "npm start" só avisam: instalar a pública apagaria o OP Mode.
+function canSelfUpdate() {
+  if (priv.active || !app.isPackaged || process.platform !== 'win32') return false;
+  if (path.basename(process.execPath).toLowerCase() !== EXE_NAME.toLowerCase()) return false;
+  const probe = path.join(path.dirname(process.execPath), '.void-write-test');
+  try { fs.writeFileSync(probe, ''); fs.rmSync(probe, { force: true }); return true; } catch (e) { return false; }
+}
+const ghFetch = (url, accept) => net.fetch(url, { bypassCustomProtocolHandlers: true, headers: { accept: accept || 'application/octet-stream', 'user-agent': 'VOID-HaxBall-Mod' } });
 async function checkUpdate() {
   const repo = repoName();
   if (!repo) return;
   try {
-    const res = await net.fetch('https://api.github.com/repos/' + repo + '/releases/latest', { bypassCustomProtocolHandlers: true, headers: { accept: 'application/vnd.github+json' } });
+    const res = await ghFetch('https://api.github.com/repos/' + repo + '/releases/latest', 'application/vnd.github+json');
     if (!res.ok) return;
-    const tag = String((await res.json()).tag_name || '');
+    const rel = await res.json();
+    const tag = String(rel.tag_name || '');
     const current = require(path.join(root, 'package.json')).version || VERSION;
-    if (/^v?\d+(\.\d+){0,2}$/.test(tag) && isNewer(tag, current)) { update = { version: tag.replace(/^v/i, ''), url: 'https://github.com/' + repo + '/releases/latest' }; log('versão nova disponível: ' + tag); }
+    if (!(/^v?\d+(\.\d+){0,2}$/.test(tag) && isNewer(tag, current))) return;
+    update = { version: tag.replace(/^v/i, ''), url: 'https://github.com/' + repo + '/releases/latest', phase: 'idle', progress: 0, install: false, asset: null };
+    log('versão nova disponível: ' + tag);
+    const asset = U.pickAsset(rel, repo);
+    if (asset && !asset.sha256 && asset.sumsUrl) {
+      try { const s = await ghFetch(asset.sumsUrl); if (s.ok) asset.sha256 = U.parseSums(await s.text(), asset.name); } catch (e) { }
+    }
+    // sem o SHA-256 publicado, não instala: só abre a página do release
+    if (asset && asset.sha256 && canSelfUpdate()) { update.asset = asset; update.install = true; }
   } catch (e) { log('não foi possível verificar atualização: ' + e.message); }
+}
+
+// Baixa o zip, confere tamanho e SHA-256 e extrai para uma pasta temporária. Não mexe no app ainda.
+async function downloadUpdate() {
+  if (!update || !update.install || !update.asset || update.phase === 'downloading') return false;
+  const a = update.asset, dir = userFile('update'), staged = path.join(dir, 'v' + update.version);
+  update.phase = 'downloading'; update.progress = 0;
+  try {
+    const res = await ghFetch(a.url);
+    if (!res.ok || !res.body) throw new Error('download respondeu ' + res.status);
+    const chunks = []; let got = 0;
+    const reader = res.body.getReader();
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      got += value.length;
+      if (got > a.size || got > U.MAX_ZIP) throw new Error('arquivo maior que o esperado');
+      chunks.push(Buffer.from(value)); update.progress = Math.floor(got * 100 / a.size);
+    }
+    const buf = Buffer.concat(chunks);
+    if (buf.length !== a.size) throw new Error('arquivo incompleto (' + buf.length + ' de ' + a.size + ' bytes)');
+    const hash = U.sha256(buf);
+    if (hash !== a.sha256) throw new Error('SHA-256 não confere (esperado ' + a.sha256 + ', recebido ' + hash + ')');
+    fs.rmSync(dir, { recursive: true, force: true }); fs.mkdirSync(staged, { recursive: true });
+    const files = U.unzip(buf, staged);
+    if (!U.looksLikeApp(staged, EXE_NAME)) throw new Error('o zip não tem o ' + EXE_NAME);
+    update.phase = 'ready'; update.progress = 100; update.staged = staged;
+    log('atualização ' + update.version + ' baixada e conferida (' + files.length + ' arquivos)');
+    return true;
+  } catch (e) {
+    update.phase = 'error'; update.progress = 0;
+    try { fs.rmSync(dir, { recursive: true, force: true }); } catch (x) { }
+    log('falha ao baixar a atualização: ' + e.message);
+    return false;
+  }
+}
+
+// Fecha o VOID e deixa o script do PowerShell trocar os arquivos e abrir a versão nova.
+function installUpdate() {
+  if (!update || update.phase !== 'ready' || !update.staged || !canSelfUpdate()) return false;
+  const script = userFile('update', 'instalar.ps1');
+  fs.writeFileSync(script, '\ufeff' + U.swapScript({ from: update.staged, to: path.dirname(process.execPath), exe: process.execPath, log: logPath }), 'utf8');   // com BOM: acentos nos caminhos chegam certos
+  const child = spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden', '-File', script], { detached: true, stdio: 'ignore', windowsHide: true });
+  child.unref();
+  log('instalando a atualização ' + update.version + '; o VOID vai fechar e abrir de novo');
+  setTimeout(() => app.quit(), 300);
+  return true;
 }
 
 // Discord: o estado atual vai para o perfil (se ligado). A sala só aparece se você deixar.
@@ -586,12 +683,12 @@ async function doAction(name, arg) {
     case 'rejoin': rejoinTries = 0; return rejoin();
     case 'export': return exportConfig();
     case 'import': return importConfig();
-    case 'sound:pick': return pickSound(String(arg));
-    case 'sound:clear': return clearSound(String(arg));
     case 'bg:pick': return pickBg();
     case 'bg:clear': clearBgFile(); saveConfig(); return true;
     case 'bg:get': return bgData();
     case 'update:open': if (update && update.url.startsWith('https://github.com/')) { shell.openExternal(update.url); return true; } return false;
+    case 'update:download': return downloadUpdate();
+    case 'update:install': return installUpdate();
     case 'rec': return toggleRecording();
     case 'bubble': return setBubble(arg === true);
     case 'log': shell.showItemInFolder(logPath); return true;
@@ -727,6 +824,7 @@ function sanitizePatch(p) {
   if (typeof p.hideSite === 'boolean') out.hideSite = p.hideSite;
   if (typeof p.autoRejoin === 'boolean') out.autoRejoin = p.autoRejoin;
   if (p.discord && typeof p.discord === 'object') out.discord = cleanDiscord(p.discord);
+  if (p.notify && typeof p.notify === 'object') out.notify = cleanNotify(Object.assign({}, config.notify, p.notify));
   if (THEME_NAMES.includes(p.theme)) out.theme = p.theme;
   if (p.chat && typeof p.chat === 'object') out.chat = cleanChat(p.chat);
   if (p.bg && typeof p.bg === 'object') out.bg = cleanBg(p.bg);                 // só a transparência; o arquivo é escolhido pelo app
@@ -735,6 +833,7 @@ function sanitizePatch(p) {
   if (Array.isArray(p.profiles)) out.profiles = cleanProfiles(p.profiles);
   if (Array.isArray(p.quick)) out.quick = cleanQuick(p.quick);
   if (isNum(p.accent)) out.accent = clampAccent(p.accent);
+  if (isNum(p.uiScale)) out.uiScale = clampInt(p.uiScale, 80, 150, 100);
   if (p.autoMsg && typeof p.autoMsg === 'object') {
     out.autoMsg = { text: String(p.autoMsg.text == null ? config.autoMsg.text : p.autoMsg.text).slice(0, 140), onJoin: !!p.autoMsg.onJoin };
   }
@@ -752,7 +851,9 @@ function registerIpc() {
     return {
       config, status, version: VERSION, capturing: capturingKey, room: roomState, palette: palette(config.accent, config.theme),
       discord: presence ? presence.status : 'off',
-      bgRev: config.bg.file ? bgRev || 1 : 0, update, dropped, canRejoin: canRejoin(), lastRoom: (lastRoom() || {}).name || (lastRoom() || {}).code || '',
+      bgRev: config.bg.file ? bgRev || 1 : 0, dropped,
+      update: update && { version: update.version, phase: update.phase, progress: update.progress, install: update.install },   // sem links nem caminhos
+      canRejoin: canRejoin(), lastRoom: (lastRoom() || {}).name || (lastRoom() || {}).code || '',
       bar: { active: barActive && !(win && win.isFullScreen && win.isFullScreen()), height: BAR_H, color: barColor(), restart: barActive !== !!config.titleBar },
       flags: { frozen: !!priv.frozen, privateModule: priv.active }
     };
@@ -765,6 +866,7 @@ function registerIpc() {
     Object.assign(config, p);
     saveConfig();
     if ('accent' in p || 'theme' in p) syncBar();
+    if ('notify' in p) setupNotify();
     if ('accent' in p || 'theme' in p || 'recording' in p || 'game' in p || 'chat' in p || 'discord' in p) pollRoom().catch(() => { });
     if (config.mode !== modeBefore || config.hideAds !== adsBefore) {
       await session.defaultSession.clearCache();
@@ -791,12 +893,13 @@ app.whenReady().then(() => {
   registerHandler();
   registerIpc();
   createWindow();
+  setupNotify();
   const upd = setTimeout(() => checkUpdate(), 6000); if (upd.unref) upd.unref();
 });
 app.on('window-all-closed', () => { try { if (presence) presence.close(); } catch (e) { } app.quit(); });
 
 // usado apenas pelos testes automáticos (tests/main.test.js)
 if (process.env.VOID_TEST) {
-  module.exports = { exportData, applyImport, isNewer, repoName, cleanChat, cleanHistory, palette, clampAccent, addHistory, noteSocket, roomCodeFrom, pollRoom, sanitizePatch, cleanGame, cleanProfiles, cleanQuick,
+  module.exports = { checkUpdate, downloadUpdate, installUpdate, getUpdate: () => update, setupNotify, setNotifyForTest: (n) => { config.notify = cleanNotify(n); }, setPrivateActive: (v) => { priv.active = !!v; }, exportData, applyImport, isNewer, repoName, cleanChat, cleanHistory, palette, clampAccent, addHistory, noteSocket, roomCodeFrom, pollRoom, sanitizePatch, cleanGame, cleanProfiles, cleanQuick,
     get config() { return config; }, get roomState() { return roomState; }, get pendingRoom() { return pendingRoom; } };
 }

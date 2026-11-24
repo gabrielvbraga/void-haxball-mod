@@ -6,7 +6,12 @@ if errorlevel 1 (
   pause
   exit /b
 )
-if not exist node_modules call npm install
+rem instala ou atualiza as dependências (rápido quando já está tudo certo)
+call npm install --no-audit --no-fund
+if errorlevel 1 (
+  pause
+  exit /b 1
+)
 call node scripts\setup-electron.js
 if errorlevel 1 (
   pause

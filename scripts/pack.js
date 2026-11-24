@@ -16,10 +16,13 @@ function optional(name) { try { return require(name); } catch (e) { return null;
 
 async function main() {
   if (!fs.existsSync(path.join(buildDir, 'package.json'))) fail('build/ não existe. Rode "npm run build" antes.');
-  if (!fs.existsSync(path.join(electronDist, 'electron.exe'))) {
-    fail('node_modules\\electron\\dist\\electron.exe não existe. Rode "node node_modules\\electron\\install.js" ' +
-      '(ou veja "Electron failed to install correctly" no README).');
+  const { isInstalled } = require('./setup-electron');
+  const electronVersion = require(path.join(root, 'node_modules', 'electron', 'package.json')).version;
+  if (!isInstalled(electronDist, electronVersion)) {
+    fail('o Electron ' + electronVersion + ' não está em node_modules\\electron\\dist (ou está outra versão lá). ' +
+      'Rode "node scripts/setup-electron.js" e tente de novo.');
   }
+  console.log('Electron ' + electronVersion);
 
   console.log('1/4 copiando o Electron...');
   fs.rmSync(outDir, { recursive: true, force: true });

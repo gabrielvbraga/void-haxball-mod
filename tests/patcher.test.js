@@ -106,7 +106,7 @@ test('setGame aceita só valores válidos e limita os números', () => {
   const w = makeEnv({});
   w.HBMOD.setUi({ game: { flat: true, ground: '#112233', crossSize: 999, chatFont: 4, vol: { kick: 30, goal: -9 }, hideTimer: true, crossColor: 'javascript:1' } });
   const g = w.HBMOD.game();
-  assert.strictEqual(g.flat, true); assert.strictEqual(g.ground, '#112233'); assert.strictEqual(g.crossSize, 200);
+  assert.strictEqual(g.field, 'flat'); assert.strictEqual(g.ground, '#112233'); assert.strictEqual(g.crossSize, 200);   // "flat: true" da 1.1 vira campo liso
   assert.strictEqual(g.chatFont, 10); assert.strictEqual(g.vol.kick, 30); assert.strictEqual(g.vol.goal, 0);
   assert.strictEqual(g.hideTimer, true); assert.strictEqual(g.crossColor, '#ffffff');
 });
@@ -126,7 +126,7 @@ function makeMedia() {
     createPattern(img, rep) { return { pattern: true, rep }; },
     arc(x, y, r) { calls.push(['arc', x, y, r]); }, stroke() { calls.push(['stroke', this.strokeStyle]); },
     fill() { calls.push(['fill', this.fillStyle]); }, fillText(t) { calls.push(['text', t]); }, drawImage(...a) { calls.push(['img'].concat(a.slice(1))); },
-    save() { }, restore() { }, beginPath() { }, moveTo() { }, lineTo() { }, setLineDash() { }
+    save() { }, restore() { }, beginPath() { }, moveTo() { }, lineTo() { }, setLineDash() { }, fillRect() { }
   };
   Object.defineProperty(Ctx.prototype, 'fillStyle', { configurable: true, enumerable: true, get() { return this._fill; }, set(v) { this._fill = v; } });
   Object.defineProperty(Ctx.prototype, 'strokeStyle', { configurable: true, enumerable: true, get() { return this._stroke; }, set(v) { this._stroke = v; } });
@@ -163,6 +163,33 @@ test('campo liso: a textura vira a cor escolhida só quando ligado', () => {
   c.fillStyle = other; assert.strictEqual(c.fillStyle, other);        // o que não é textura do campo fica igual
   c.fillStyle = '#fff'; assert.strictEqual(c.fillStyle, '#fff');
 });
+test('estilos do campo: futsal, areia e gelo viram um ladrilho próprio, refeito só quando muda cor ou estilo', () => {
+  const { w, Ctx } = makeMedia(); const c = new Ctx();
+  const grass = c.createPattern({}, null), other = c.createPattern({}, 'no-repeat');
+  w.HBMOD.setGame({ field: 'futsal', ground: '#b5834f' });
+  c.fillStyle = grass; const p1 = c.fillStyle; assert.ok(p1 && p1.pattern && p1 !== grass && p1.rep === 'repeat');
+  c.fillStyle = grass; assert.strictEqual(c.fillStyle, p1);                                  // mesmo ladrilho (cache)
+  c.fillStyle = other; assert.strictEqual(c.fillStyle, other);
+  w.HBMOD.setGame({ field: 'ice' }); c.fillStyle = grass; assert.ok(c.fillStyle !== p1 && c.fillStyle.pattern);
+  w.HBMOD.setGame({ field: 'nada' }); assert.strictEqual(w.HBMOD.game().field, 'ice');       // estilo desconhecido é ignorado
+  w.HBMOD.setGame({ field: 'original' }); c.fillStyle = grass; assert.strictEqual(c.fillStyle, grass);
+  w.HBMOD.setGame({ flat: false }); assert.strictEqual(w.HBMOD.game().field, 'original');
+});
+test('texturas com "cor das linhas" ligada: os riscos do gelo continuam da cor do gelo', () => {
+  const { w, Ctx } = makeMedia(); const c = new Ctx(), grass = c.createPattern({}, null), tiles = [];
+  const mk = w.document.createElement; w.document.createElement = (tag) => { const el = mk(tag); if (tag === 'canvas') { const t = new Ctx(); const strokes = []; const ss = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(t), 'strokeStyle');
+    t.stroke = function () { strokes.push(this.strokeStyle); }; tiles.push(strokes); el.getContext = () => t; } return el; };
+  w.HBMOD.setGame({ field: 'ice', ground: '#cfe3ee', lineOn: true, lineColor: '#c8102e' });
+  c.fillStyle = grass;
+  assert.ok(tiles.length === 1 && tiles[0].length > 5);
+  assert.ok(tiles[0].every((v) => /^rgba\(/.test(v)), JSON.stringify(tiles[0].slice(0, 3)));
+  c.strokeStyle = '#C7E6BD'; assert.strictEqual(c.strokeStyle, '#c8102e');            // a linha do campo, essa sim, muda
+});
+test('texturas: o bloco de desenho é igual no core.js e no ui.js', () => {
+  const fs = require('fs'), path = require('path');
+  const block = (f) => { const s = fs.readFileSync(path.join(__dirname, '..', 'src', f), 'utf8'); const a = s.indexOf('// >>> texturas do campo'), b = s.indexOf('// <<< texturas do campo'); assert.ok(a > 0 && b > a, f); return s.slice(a, b); };
+  assert.strictEqual(block('core.js'), block('ui.js'));
+});
 test('mira: desenhada só em volta do anel do seu jogador, e só quando ligada', () => {
   const { w, Ctx, calls } = makeMedia(); const c = new Ctx();
   const ring = () => { c.globalAlpha = 0.3; c.arc(100, 50, 25, 0, 6.28, false); c.stroke(); c.globalAlpha = 1; };
@@ -188,18 +215,6 @@ test('volumes: cada tipo de som passa pelo seu controle', () => {
   assert.strictEqual(master.connect(ac.destination), ac.destination); // o resto do áudio não muda
 });
 
-test('som próprio: toca o seu arquivo no lugar do original, com o volume da categoria; remover volta ao original', () => {
-  const { w, AudioContext } = makeMedia(); const ac = new AudioContext(), master = ac.createGain(), bufs = [];
-  for (let i = 0; i < 7; i++) ac.decodeAudioData(i, (b) => bufs.push(b));
-  assert.strictEqual(w.HBMOD.setSound('crowd', 'AAAA'), false);       // só chute, gol e menção
-  assert.strictEqual(w.HBMOD.setSound('kick', 'AAAA'), true);
-  assert.deepStrictEqual(Array.from(w.HBMOD.roomInfo().snd), ['kick']);
-  const s = ac.createBufferSource(); s.buffer = bufs[2]; assert.strictEqual(s.buffer.id, 'custom');
-  w.HBMOD.setGame({ vol: { kick: 10 } }); s.connect(master); assert.strictEqual(s.to[0].gain.value, 0.1);
-  const g = ac.createBufferSource(); g.buffer = bufs[3]; assert.strictEqual(g.buffer, bufs[3]);
-  w.HBMOD.setSound('kick', null);
-  const s2 = ac.createBufferSource(); s2.buffer = bufs[2]; assert.strictEqual(s2.buffer, bufs[2]);
-});
 test('bola: só o primeiro disco de cor lisa de cada quadro muda de cor', () => {
   const m = makeMedia(), c = new m.Ctx(), shirt = c.createPattern({}, 'no-repeat');
   const disc = (style) => { c.fillStyle = style; c.arc(1, 1, 10, 0, 6.28); c.fill(); c.stroke(); };

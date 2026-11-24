@@ -1,0 +1,56 @@
+# Lançamento automático do VOID HaxBall Mod.
+# Quando uma tag vX.Y.Z é enviada (git push origin v1.2.0), um Windows do próprio GitHub:
+#   1. confere se a tag é a mesma versão do package.json;
+#   2. instala as dependências, roda os testes e a varredura de segredos;
+#   3. gera o .exe da versão PÚBLICA (a pasta private/ não existe no GitHub);
+#   4. monta o zip e confere o zip do jeito que o atualizador do app lê;
+#   5. publica o release "VOID HaxBall Mod X.Y" com o texto do CHANGELOG.md e o zip (o mesmo modelo dos releases
+#      feitos à mão). O próprio GitHub publica o SHA-256 do zip, que o atualizador usa para conferir o download.
+name: Release
+
+on:
+  push:
+    tags: ['v*.*.*']
+
+permissions:
+  contents: write          # só o necessário para criar o release
+
+jobs:
+  release:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1   # v7.0.1
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7.1.0
+        with:
+          node-version: 22
+
+      - name: Conferir a tag
+        shell: pwsh
+        run: node scripts/release.js check "$env:GITHUB_REF_NAME"
+
+      - name: Instalar dependências
+        run: npm install --no-audit --no-fund
+
+      - name: Testes, segredos e .exe público
+        run: npm run dist
+
+      - name: Montar e conferir o zip
+        shell: pwsh
+        run: |
+          $version = "$env:GITHUB_REF_NAME".TrimStart('v')
+          New-Item -ItemType Directory -Force -Path release | Out-Null
+          $zip = "release/VOID-HaxBall-Mod-$version-win64.zip"
+          Compress-Archive -Force -Path "dist/VOID HaxBall Mod-win32-x64/*" -DestinationPath $zip
+          node scripts/release.js assets $zip
+
+      - name: Publicar o release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $version = "$env:GITHUB_REF_NAME".TrimStart('v')
+          $title = node scripts/release.js notes $version release/notes.md
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          gh release create "$env:GITHUB_REF_NAME" --title "$title" --notes-file release/notes.md "release/VOID-HaxBall-Mod-$version-win64.zip"

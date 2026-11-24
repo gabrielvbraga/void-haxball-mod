@@ -6,7 +6,7 @@
   if (window.HBMOD) return;
   var KEY = 'void_mod_v1';
   var settings = { chatBubble: false, badge: true, ext: {} };
-  var ui = { accent: '#e0212f', hi: '#ff3b4a', glow: 'rgba(224,33,47,.25)', hidden: false };   // o app atualiza por setUi
+  var ui = { accent: '#e0212f', hi: '#ff3b4a', glow: 'rgba(224,33,47,.25)', hidden: false, teamSound: false };   // o app atualiza por setUi
   var commands = {}, badges = [], statuses = [], resets = [], infos = [];
   var badgeEl = null, lastName = '';
 
@@ -108,6 +108,65 @@
   });
 
   // ---- informações para o app (histórico de salas e status) ----
+  // ---- avisos para as notificações do Windows (o app recolhe junto com roomInfo e decide se mostra) ----
+  //  - menção: o próprio jogo marca com a classe "highlight" a linha do chat que cita o seu apelido;
+  //  - time: com partida rolando, o jogo escreve no chat "<apelido> was moved to Red/Blue (by ...)";
+  //    sem partida, olhamos a lista de times da tela da sala (sair de Spectators para Red/Blue).
+  var notes = [], myTeam = '';
+  function note(k, text) {
+    if (notes.length < 10) notes.push({ k: k, text: String(text || '').slice(0, 160) });
+    if (k === 'team' && ui.teamSound) { try { teamChime(); } catch (e) { } }
+  }
+  // Som do VOID para "te colocaram num time": três notas subindo (Ré, Lá, Ré), tipo sino curto, ~0,6 s.
+  // Gerado na hora pelo navegador, sem arquivo. Usa o volume de "Chat e avisos".
+  var chimeCtx = null, lastChime = 0;
+  function teamChime() {
+    var now = Date.now(); if (now - lastChime < 1500) return; lastChime = now;
+    var AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
+    var ctx = audioCtx || chimeCtx || (chimeCtx = new AC());
+    if (ctx.state === 'suspended' && ctx.resume) ctx.resume();
+    var vol = (game.vol && game.vol.chat != null ? game.vol.chat : 100) / 100; if (!vol) return;
+    var t0 = ctx.currentTime + 0.02, out = ctx.createGain();
+    out.gain.value = 0.32 * vol; out.connect(ctx.destination);
+    [[587.33, 0], [880, 0.09], [1174.66, 0.18]].forEach(function (n) {
+      [['triangle', 1, 1], ['sine', 2, 0.25]].forEach(function (v) {
+        var o = ctx.createOscillator(), g = ctx.createGain(), t = t0 + n[1];
+        o.type = v[0]; o.frequency.value = n[0] * v[1];
+        g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v[2], t + 0.008); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.42);
+        o.connect(g); g.connect(out); o.start(t); o.stop(t + 0.45);
+      });
+    });
+  }
+  var MOVED = /^(.+) was moved to (Red|Blue|Spectators)(?: by .*)?$/;
+  function watchLine(p) {
+    var cls = String(p.className || ''), text = String(p.textContent || '');
+    if (/\bhighlight\b/.test(cls)) { note('mention', text); return; }
+    if (!/\bnotice\b/.test(cls)) return;
+    var m = MOVED.exec(text), me = stored('player_name');
+    if (!m || !me || m[1] !== me) return;
+    var t = m[2] === 'Red' ? 'red' : m[2] === 'Blue' ? 'blue' : 'spec';
+    if (t !== 'spec' && myTeam !== t) note('team', t);
+    myTeam = t;
+  }
+  function teamFromList() {
+    var me = stored('player_name'); if (!me) return '';
+    var lists = document.querySelectorAll('.room-view .player-list-view');
+    for (var i = 0; i < lists.length; i++) {
+      var cls = String(lists[i].className || ''), t = /\bt-red\b/.test(cls) ? 'red' : /\bt-blue\b/.test(cls) ? 'blue' : /\bt-spec\b/.test(cls) ? 'spec' : '';
+      if (!t) continue;
+      var names = lists[i].querySelectorAll('.player-list-item [data-hook="name"]');
+      for (var j = 0; j < names.length; j++) if (String(names[j].textContent || '').trim() === me) return t;
+    }
+    return '';
+  }
+  function checkTeam(inRoom) {
+    if (!inRoom) { myTeam = ''; return; }
+    var t = teamFromList();
+    if (!t) return;                                   // tela da sala fechada: vale o aviso do chat
+    if (myTeam === 'spec' && t !== 'spec') note('team', t);
+    myTeam = t;
+  }
+
   function roomInfo() {
     // o nome da sala só existe na tela do Esc: guardamos o último lido enquanto você está na sala
     var nameEl = document.querySelector('.room-view [data-hook="room-name"]');
@@ -117,7 +176,9 @@
     var drop = document.querySelector('.disconnected-view');
     var why = drop ? (drop.querySelector && drop.querySelector('[data-hook="reason"]')) : null;
     var info = { inRoom: inRoom, name: lastName, bubble: settings.chatBubble, nick: stored('player_name'), avatar: stored('avatar'),
-      dropped: drop ? String((why && why.textContent) || 'disconnected').slice(0, 120) : '', snd: customSet.slice() };
+      dropped: drop ? String((why && why.textContent) || 'disconnected').slice(0, 120) : '' };
+    try { checkTeam(inRoom); } catch (e) { }
+    info.notes = notes.splice(0);
     infos.forEach(function (fn) { try { var o = fn(); if (o) for (var k in o) info[k] = o[k]; } catch (e) { } });
     return info;
   }
@@ -138,7 +199,7 @@
   // ================= personalização (tudo local: só muda o que VOCÊ vê e ouve) =================
   var HEX = /^#[0-9a-f]{6}$/i;
   var game = {
-    flat: false, ground: '#3d6b45',                       // campo liso + cor do campo
+    field: 'original', ground: '#3d6b45',                 // estilo do campo (original, liso, futsal, areia, gelo) + cor
     lineOn: false, lineColor: '#ffffff',                  // cor das linhas do campo
     ballOn: false, ballColor: '#ffd84a',                  // cor da bola
     cross: false, crossColor: '#ffffff', crossSize: 100,  // mira no seu jogador
@@ -161,6 +222,45 @@
   // do mapa, e cores escritas por nome ("black", "white") para o contorno dos jogadores e da bola.
   // Então: contorno com cor em código = linha do campo. Vale para qualquer mapa, não só os clássicos.
   function isLineColor(v) { return typeof v === 'string' && (v.charCodeAt(0) === 35 || v.slice(0, 3) === 'rgb'); }
+  // >>> texturas do campo (este bloco é igual no core.js e no ui.js; um teste confere)
+  // Desenha um ladrilho de 128x128 que se repete no campo. Tudo por código, a partir da cor do campo,
+  // com sorteio fixo (o mesmo desenho sempre), sem imagens de fora.
+  var FIELD_DEFAULT = { futsal: '#b5834f', sand: '#d6bf8a', ice: '#cfe3ee' };
+  function paintField(cv, kind, hex) {
+    var c = cv.getContext('2d'), S = 128, seed = 7;
+    cv.width = cv.height = S;
+    function rnd() { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; }
+    var base = [parseInt(hex.slice(1, 3), 16), parseInt(hex.slice(3, 5), 16), parseInt(hex.slice(5, 7), 16)];
+    function tone(k, a) {          // k > 0 clareia, k < 0 escurece
+      var t = k > 0 ? 255 : 0, m = Math.abs(k);
+      return 'rgba(' + base.map(function (v) { return Math.round(v + (t - v) * m); }).join(',') + ',' + (a == null ? 1 : a) + ')';
+    }
+    c.fillStyle = tone(0); c.fillRect(0, 0, S, S);
+    var i, x, y;
+    if (kind === 'futsal') {       // tábuas de madeira: 8 fileiras de 2 tábuas, emendas desencontradas, veios finos
+      for (var row = 0; row < 8; row++) {
+        y = row * 16; var a = (row * 53 + 20) % 128, b = (a + 50 + (row * 29) % 28) % 128;
+        c.fillStyle = tone((rnd() - 0.5) * 0.18); c.fillRect(0, y, S, 16);
+        c.fillStyle = tone((rnd() - 0.5) * 0.18);
+        if (b > a) c.fillRect(a, y, b - a, 16); else { c.fillRect(a, y, S - a, 16); c.fillRect(0, y, b, 16); }
+        for (i = 0; i < 3; i++) { c.fillStyle = tone(-0.12, 0.35); c.fillRect(0, y + 3 + Math.floor(rnd() * 10), S, 1); }
+        c.fillStyle = tone(-0.35, 0.6); c.fillRect(a, y, 1, 16); c.fillRect(b, y, 1, 16); c.fillRect(0, y + 15, S, 1);
+      }
+    } else if (kind === 'sand') {  // areia: grãos claros e escuros e ondas suaves
+      for (i = 0; i < 6; i++) { c.fillStyle = tone(-0.06, 0.3); c.fillRect(0, i * 21 + Math.floor(rnd() * 8), S, 2 + Math.floor(rnd() * 3)); }
+      for (i = 0; i < 900; i++) { c.fillStyle = rnd() < 0.5 ? tone(0.25, 0.55) : tone(-0.2, 0.5); c.fillRect(rnd() * S, rnd() * S, 1, 1); }
+    } else if (kind === 'ice') {   // gelo: manchas claras e riscos de patins
+      for (i = 0; i < 10; i++) { c.fillStyle = tone(0.35, 0.12); c.beginPath(); c.arc(rnd() * S, rnd() * S, 10 + rnd() * 24, 0, 6.2832); c.fill(); }
+      c.lineWidth = 1;
+      for (i = 0; i < 14; i++) {
+        x = rnd() * S; y = rnd() * S; var len = 20 + rnd() * 50, ang = -0.5 + rnd() * 0.5;
+        c.strokeStyle = tone(0.6, 0.35); c.beginPath(); c.moveTo(x, y); c.lineTo(x + Math.cos(ang) * len, y + Math.sin(ang) * len); c.stroke();
+      }
+    }
+    return cv;
+  }
+  // <<< texturas do campo
+  var FIELDS = ['original', 'flat', 'futsal', 'sand', 'ice'];
   var drawingOwn = false;
   function hookCanvas() {
     if (typeof CanvasRenderingContext2D === 'undefined' || typeof WeakSet !== 'function') return false;
@@ -224,6 +324,20 @@
       return fillText.apply(this, arguments);
     };
     var createPattern = P.createPattern;
+    // estilo do campo: liso = só a cor; futsal/areia/gelo = ladrilho desenhado (feito uma vez por cor e estilo)
+    var fieldCache = { key: '', ctx: null, pat: null };
+    function fieldFill(ctx) {
+      if (game.field === 'flat') return game.ground;
+      var key = game.field + game.ground;
+      if (fieldCache.key !== key || fieldCache.ctx !== ctx) {
+        // drawingOwn: os riscos do ladrilho não são linhas do campo, então a "cor das linhas" não pode pintá-los
+        drawingOwn = true;
+        try { fieldCache = { key: key, ctx: ctx, pat: createPattern.call(ctx, paintField(document.createElement('canvas'), game.field, game.ground), 'repeat') }; }
+        catch (e) { fieldCache = { key: '', ctx: null, pat: null }; }
+        drawingOwn = false;
+      }
+      return fieldCache.pat;
+    }
     P.createPattern = function (img, rep) {
       var pat = createPattern.apply(this, arguments);
       try {
@@ -238,7 +352,7 @@
       set: function (v) {
         cand = null;
         if (v && typeof v === 'object' && !ui.hidden) {
-          if (game.flat && textures.has(v)) v = game.ground;                       // campo liso
+          if (game.field !== 'original' && textures.has(v)) { var ff = fieldFill(this); if (ff) v = ff; }   // estilo do campo
           else if (game.hideAvatars || game.teamOn) {
             var info = shirts.get(v);
             if (info) { v = shirtFor(info, false); if (game.hideAvatars) cand = { c: this, info: info }; }
@@ -366,8 +480,7 @@
   //    "botão de volume" (GainNode) da sua categoria. Um som próprio entra no lugar do original na hora de tocar.
   var SOUND_ORDER = ['chat', 'mention', 'kick', 'goal', 'join', 'leave', 'crowd'];
   var SOUND_CAT = { chat: 'chat', mention: 'chat', join: 'chat', leave: 'chat', kick: 'kick', goal: 'goal', crowd: 'goal' };
-  var CUSTOM_SLOTS = { kick: 1, goal: 1, mention: 1 };
-  var gainNodes = [], custom = {}, customSet = [], audioCtx = null, rawDecode = null, slotOf = null;
+  var gainNodes = [], audioCtx = null, rawDecode = null, slotOf = null;
   function hookAudio() {
     var AC = window.AudioContext || window.webkitAudioContext;
     if (!AC || typeof AudioNode === 'undefined' || typeof WeakMap !== 'function') return false;
@@ -382,16 +495,6 @@
       if (p && p.then) p.then(tag, function () { });
       return p;
     };
-    // som próprio: quando o jogo vai tocar o som original, entregamos o seu arquivo no lugar
-    if (typeof AudioBufferSourceNode !== 'undefined') {
-      var bd = Object.getOwnPropertyDescriptor(AudioBufferSourceNode.prototype, 'buffer');
-      if (bd && bd.set && bd.configurable) {
-        Object.defineProperty(AudioBufferSourceNode.prototype, 'buffer', {
-          configurable: true, enumerable: bd.enumerable, get: bd.get,
-          set: function (v) { var slot = v && slotOf.get(v); bd.set.call(this, (slot && custom[slot]) || v); }
-        });
-      }
-    }
     var connect = AudioNode.prototype.connect;
     AudioNode.prototype.connect = function (dest) {
       try {
@@ -413,22 +516,6 @@
     };
     return true;
   }
-  // chamado pelo app: slot = 'kick' | 'goal' | 'mention'; b64 = o arquivo de áudio (ou null para voltar ao original)
-  function setSound(slot, b64) {
-    if (!CUSTOM_SLOTS[slot]) return false;
-    if (customSet.indexOf(slot) === -1) customSet.push(slot);
-    if (!b64) { delete custom[slot]; customSet = customSet.filter(function (s) { return s !== slot; }); return true; }
-    if (!audioCtx || !rawDecode) { customSet = customSet.filter(function (s) { return s !== slot; }); return false; }   // o jogo ainda não carregou os sons
-    try {
-      var bin = atob(b64), bytes = new Uint8Array(bin.length);
-      for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-      var done = function (buf) { if (buf) { slotOf.set(buf, slot); custom[slot] = buf; } };
-      var p = rawDecode.call(audioCtx, bytes.buffer, done, function () { });
-      if (p && p.then) p.then(done, function () { });
-      return true;
-    } catch (e) { return false; }
-  }
-
   // -- Chat e placar: só CSS por cima da página do jogo
   // -- Chat e placar. Duas camadas, porque a página do jogo pode recusar folhas de estilo de fora:
   //    1) uma folha de estilo criada por código (adoptedStyleSheets), com <style> como reserva;
@@ -525,12 +612,15 @@
   try {
     if (typeof MutationObserver === 'function') {
       new MutationObserver(function (list) {
-        if (!chat.hideJoin && !chat.words.length && !chat.players.length) return;
+        var filtering = chat.hideJoin || chat.words.length || chat.players.length;
         for (var i = 0; i < list.length; i++) {
           var added = list[i].addedNodes;
           for (var j = 0; j < added.length; j++) {
             var n = added[j];
-            if (n.nodeName === 'P' && n.parentNode && /\blog\b/.test(String(n.parentNode.className || ''))) filterLine(n);
+            if (n.nodeName === 'P' && n.parentNode && /\blog\b/.test(String(n.parentNode.className || ''))) {
+              try { watchLine(n); } catch (e) { }
+              if (filtering) filterLine(n);
+            }
           }
         }
       }).observe(document.documentElement, { childList: true, subtree: true });
@@ -540,7 +630,9 @@
   // chamado pelo app sempre que você mexe na aba Personalizar / Áudio / Chat e HUD
   function setGame(g) {
     if (!g || typeof g !== 'object') return;
-    ['flat', 'lineOn', 'ballOn', 'cross', 'hideAvatars', 'hideScore', 'hideTimer', 'kickLine', 'kickRing', 'teamOn'].forEach(function (k) { if (typeof g[k] === 'boolean') game[k] = g[k]; });
+    ['lineOn', 'ballOn', 'cross', 'hideAvatars', 'hideScore', 'hideTimer', 'kickLine', 'kickRing', 'teamOn'].forEach(function (k) { if (typeof g[k] === 'boolean') game[k] = g[k]; });
+    if (FIELDS.indexOf(g.field) !== -1) game.field = g.field;
+    else if (typeof g.flat === 'boolean') game.field = g.flat ? 'flat' : 'original';   // configurações da 1.1 (só tinha campo liso)
     ['ground', 'lineColor', 'ballColor', 'crossColor', 'kickColor', 'kickRingColor', 'teamRed', 'teamBlue'].forEach(function (k) { if (HEX.test(g[k])) game[k] = g[k]; });
     if (g.kickRange != null) game.kickRange = num(g.kickRange, 40, 1000, 160);
     if (g.kickExt != null) game.kickExt = num(g.kickExt, 0, 600, 140);
@@ -566,6 +658,7 @@
     if (HEX.test(o.hi)) ui.hi = o.hi;
     if (typeof o.glow === 'string' && /^rgba\([\d.,\s]+\)$/.test(o.glow)) ui.glow = o.glow;
     if (typeof o.hidden === 'boolean') ui.hidden = o.hidden;
+    if (typeof o.teamSound === 'boolean') ui.teamSound = o.teamSound;
     if (o.game) setGame(o.game);
     if (o.chat) setChat(o.chat);
     applyCss();
@@ -582,7 +675,7 @@
     registerStatus: function (fn) { statuses.push(fn); },
     registerReset: function (fn) { resets.push(fn); },
     registerInfo: function (fn) { infos.push(fn); },
-    domInfo: domInfo, setGame: setGame, setChat: setChat, setSound: setSound, setProfile: setProfile, game: function () { return JSON.parse(JSON.stringify(game)); }, hooked: hooked,
+    domInfo: domInfo, setGame: setGame, setChat: setChat, setProfile: setProfile, game: function () { return JSON.parse(JSON.stringify(game)); }, hooked: hooked,
     hook: function (name) { var h = window.HBMOD.hooks; return !h || h[name] !== false; },
     chatBubbleOn: function () { return settings.chatBubble; },
     setChatBubble: setChatBubble, roomInfo: roomInfo, setUi: setUi,

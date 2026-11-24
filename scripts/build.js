@@ -20,7 +20,7 @@ fs.writeFileSync(path.join(out, 'package.json'), JSON.stringify({
   main: 'src/main.js', author: pkg.author, repository: pkg.repository || ''
 }, null, 2));
 
-for (const f of ['main.js', 'preload.js', 'patcher.js', 'core.js', 'ui.js', 'discord.js', 'splash.html']) copy('src/' + f);
+for (const f of ['main.js', 'preload.js', 'patcher.js', 'core.js', 'ui.js', 'discord.js', 'updater.js', 'splash.html']) copy('src/' + f);
 for (const f of ['icon.ico', 'icon.png']) copy('assets/' + f);
 
 if (withPrivate) {

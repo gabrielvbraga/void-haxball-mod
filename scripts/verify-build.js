@@ -16,6 +16,13 @@ for (const need of ['package.json', 'src/main.js', 'src/preload.js', 'src/patche
 for (const f of files.filter((x) => x.endsWith('.js'))) {
   try { new vm.Script(fs.readFileSync(path.join(out, f), 'utf8'), { filename: f }); } catch (e) { problems.push('sintaxe inválida em ' + f + ': ' + e.message); }
 }
+// todo require('./arquivo') do código precisa ter ido junto (senão o .exe abre e fecha na hora)
+for (const f of files.filter((x) => /^src\/.*\.js$/.test(x))) {
+  const code = fs.readFileSync(path.join(out, f), 'utf8');
+  for (const m of code.matchAll(/require\(\s*'\.\/([\w.-]+?)(?:\.js)?'\s*\)/g)) {
+    if (!files.includes(path.posix.join(path.posix.dirname(f), m[1] + '.js'))) problems.push(f + ' usa ./' + m[1] + ', que não foi para o build');
+  }
+}
 if (!/HBMOD/.test(fs.readFileSync(path.join(out, 'src/core.js'), 'utf8'))) problems.push('src/core.js perdeu o nome HBMOD (a ofuscação quebraria os patches)');
 const bad = files.filter((f) => /(^|\/)(\.env|config\.json|log\.txt|.*\.log|.*\.map|node_modules\/.*|tests\/.*|scripts\/.*|docs\/.*|\.git\/.*)$/.test(f));
 bad.forEach((f) => problems.push('arquivo que não deveria ir na distribuição: ' + f));

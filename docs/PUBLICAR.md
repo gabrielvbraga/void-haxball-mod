@@ -183,55 +183,27 @@ Na página do repositório, clique na engrenagem ao lado de **About** e adicione
 
 ---
 
-## 7. Publicar o executável (Release)
+## 7. Publicar uma versão nova (Release automático)
 
-O `.exe` vai em **Releases**, não no código.
+Desde a 1.2.0, o `.exe` é gerado e publicado pelo próprio GitHub (arquivo `.github/workflows/release.yml`). Você não gera zip nem arrasta arquivo: só escreve as novidades, sobe a versão e cria a tag.
 
-### 7.1 Gerar o executável
+**1. Escreva as novidades** no `CHANGELOG.md`, numa seção nova no topo (em inglês, como as outras). Esse texto vira a descrição do release:
 
-Dois cliques em `Gerar-EXE.bat` (ou `npm run dist`). Se você tem a pasta `private\`, o `.bat` gera a versão **pessoal** (com OP Mode e ping falso), que **não pode ser publicada**. Para gerar a versão pública mesmo tendo a pasta `private\`:
+```
+## 1.2.1
+
+Fixed: (o que mudou)
+
+- (um item por linha)
+```
+
+**2. Suba a versão** (troque `1.2.1` pela versão nova):
 
 ```bat
-npm run dist
+npm version 1.2.1 --no-git-tag-version
 ```
 
-### 7.2 Compactar
-
-```bat
-powershell -NoProfile -Command "Compress-Archive -Force -Path 'dist\VOID HaxBall Mod-win32-x64\*' -DestinationPath 'VOID-HaxBall-Mod-1.0.0-win64.zip'"
-```
-
-### 7.3 Publicar
-
-1. No repositório: **Releases → Draft a new release** (ou **Create a new release**).
-2. **Choose a tag:** digite `v1.0.0` e clique em **Create new tag**.
-3. **Release title:** `VOID HaxBall Mod 1.0`.
-4. Na descrição, liste as novidades (exemplo abaixo).
-5. Arraste o `VOID-HaxBall-Mod-1.0.0-win64.zip` para a área de anexos.
-6. Clique em **Publish release**.
-
-Exemplo de descrição:
-
-```
-Novidades
-- Primeira versão pública do VOID HaxBall Mod
-- Menu com barra lateral, temas de cor e português/inglês
-- Bloqueio de anúncios, FPS, modo gravação (F4) e Chat Bubble
-- Salas recentes e favoritas, perfis e ações rápidas
-
-Instalação: extraia o zip e abra VOID-HaxBall-Mod.exe.
-Código aberto (licença MIT). Desenvolvido por Gabriel Vieira.
-```
-
----
-
-## 8. Publicar atualizações
-
-Toda vez que mudar o projeto:
-
-**1. Suba a versão** no `package.json` (campo `"version"`, por exemplo de `1.0.0` para `1.0.1`).
-
-**2. Teste e confira:**
+**3. Teste e confira:**
 
 ```bat
 npm test
@@ -239,17 +211,41 @@ npm run check:secrets
 git status
 ```
 
-**3. Envie** (troque a mensagem pelo que você mudou):
+**4. Envie o código e a tag:**
 
 ```bat
 git add .
-git commit -m "Corrige X e adiciona Y"
+git commit -m "VOID HaxBall Mod 1.2.1"
 git push
+git tag v1.2.1
+git push origin v1.2.1
 ```
 
-**4. Gere um novo Release** repetindo o passo 7 com a versão nova (tag `v1.0.1`, por exemplo).
+**5. Acompanhe** em **Actions** no repositório (leva uns 10 minutos). Quando ficar verde, o release aparece em **Releases** com:
 
-Regras de ouro:
+- título `VOID HaxBall Mod 1.2.1` (para versões terminadas em `.0`, só `1.2`, como antes);
+- o texto da seção do `CHANGELOG.md`, mais a linha de instalação;
+- o `VOID-HaxBall-Mod-1.2.1-win64.zip` (o GitHub mostra o SHA-256 dele, que o atualizador do app usa para conferir o download).
+
+Se ficar vermelho, nada é publicado. Abra o passo que falhou: os motivos mais comuns são a tag diferente da versão do `package.json` e a falta da seção no `CHANGELOG.md`.
+
+A versão publicada é sempre a **pública**: a pasta `private\` não existe no GitHub, então o OP Mode e o ping falso nunca entram no release. Para gerar a sua versão pessoal no seu PC, continue usando o `Gerar-EXE.bat`.
+
+### 7.1 Errei a tag
+
+Apague a tag e o release (se chegou a ser criado) e crie de novo:
+
+```bat
+git tag -d v1.2.1
+git push origin :refs/tags/v1.2.1
+```
+
+No site, apague o release em **Releases** (botão **Delete**), se ele existir.
+
+---
+
+## 8. Regras de ouro
+
 - Rode `git status` **antes** de todo `git add .` e confira a lista.
 - Nunca use `git add -f` (ele força arquivos que o `.gitignore` bloqueia).
 - Uma mudança por commit, com uma mensagem que explique o quê e o porquê.
@@ -288,11 +284,14 @@ git branch -M main
 git remote add origin https://github.com/SEU-USUARIO/void-haxball-mod.git
 git push -u origin main
 
-:: atualizações
+:: versão nova (depois de escrever o CHANGELOG.md)
+npm version 1.2.1 --no-git-tag-version
 npm test
 npm run check:secrets
 git status
 git add .
-git commit -m "Descreva a mudança"
+git commit -m "VOID HaxBall Mod 1.2.1"
 git push
+git tag v1.2.1
+git push origin v1.2.1
 ```

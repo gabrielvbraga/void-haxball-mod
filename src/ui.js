@@ -19,8 +19,9 @@
     'tool.top': ['Sempre no topo', 'Always on top'], 'tool.shot': ['Captura', 'Screenshot'], 'tool.zoomout': ['Zoom −', 'Zoom −'], 'tool.zoomin': ['Zoom +', 'Zoom +'],
     'recent': ['Salas recentes', 'Recent rooms'], 'clear': ['Limpar', 'Clear'],
     'recent.empty': ['Nenhuma sala ainda. As salas em que você entrar aparecem aqui.', 'No rooms yet. Rooms you join will show up here.'],
-    'field': ['Campo', 'Field'], 'flat': ['Campo liso (Flat Ground)', 'Flat ground'],
-    'flat.hint': ['Troca a textura do campo por uma cor só.', 'Replaces the field texture with a single color.'],
+    'field': ['Campo', 'Field'], 'fstyle': ['Estilo do campo', 'Field style'],
+    'fstyle.hint': ['Liso troca a grama por uma cor só; futsal, areia e gelo usam a cor abaixo como base.', 'Flat replaces the grass with a single color; futsal, sand and ice use the color below as their base.'],
+    'fs.original': ['Original (grama)', 'Original (grass)'], 'fs.flat': ['Liso (Flat Ground)', 'Flat ground'], 'fs.futsal': ['Futsal (madeira)', 'Futsal (wood)'], 'fs.sand': ['Areia', 'Sand'], 'fs.ice': ['Gelo', 'Ice'],
     'ground': ['Cor do campo (Ground Color)', 'Ground color'],
     'cross': ['Mira', 'Crosshair'], 'cross.on': ['Mira no seu jogador', 'Crosshair on your player'],
     'cross.hint': ['Anel com cruz em volta do seu jogador.', 'A ring with a cross around your player.'],
@@ -90,6 +91,10 @@
     'teams': ['Times', 'Teams'], 'team.on': ['Trocar as cores dos times', 'Change team colors'],
     'team.hint': ['Só na sua tela. Vale para as cores padrão (vermelho e azul) do HaxBall.', 'Only on your screen. Applies to HaxBall\u2019s default red and blue.'],
     'team.red': ['Time vermelho vira', 'Red team becomes'], 'team.blue': ['Time azul vira', 'Blue team becomes'],
+    'nt': ['Notificações do Windows', 'Windows notifications'], 'nt.mention': ['Quando citarem seu apelido', 'When someone mentions your nickname'],
+    'nt.team': ['Quando te colocarem num time', 'When you are moved to a team'],
+    'nt.hint': ['Só aparecem com o VOID minimizado ou atrás de outra janela, e nunca no modo gravação. Ao ligar, o VOID cria um atalho no Menu Iniciar (o Windows exige isso para mostrar o aviso).', 'Only shown while VOID is minimized or behind another window, and never in recording mode. Turning one on creates a Start Menu shortcut (Windows needs it to show the alert).'],
+    'nt.teamhint': ['Toca o som do VOID sempre que te colocam num time (com o volume de Chat e avisos). Para avisar também antes da partida começar, o jogo continua sendo desenhado com o VOID minimizado (usa um pouco mais do PC).', 'Plays the VOID sound every time you are moved to a team (at the Chat and alerts volume). To also alert before the match starts, the game keeps drawing while VOID is minimized (uses a bit more of your PC).'],
     'dc': ['Discord', 'Discord'], 'dc.on': ['Mostrar "Jogando HaxBall" no perfil', 'Show "Playing HaxBall" on your profile'],
     'dc.room': ['Mostrar o nome da sala', 'Show the room name'], 'dc.id': ['ID do aplicativo', 'Application ID'], 'dc.idph': ['Número de 17 a 20 dígitos', '17 to 20 digit number'],
     'dc.hint': ['Crie um aplicativo em discord.com/developers (o nome dele é o que aparece no perfil) e cole aqui o "Application ID". Precisa do Discord de computador aberto. No modo gravação fica desligado.', 'Create an application at discord.com/developers (its name is what shows on your profile) and paste its "Application ID" here. Needs the desktop Discord app running. Off while recording mode is on.'],
@@ -98,19 +103,20 @@
     'm.dc.bad': ['ID inválido: são só números (17 a 20 dígitos)', 'Invalid ID: digits only (17 to 20)'],
     'players': ['Jogadores', 'Players'], 'name.size': ['Tamanho dos nomes', 'Name size'],
     'avatars.hide': ['Esconder avatares dos outros', 'Hide other players\u2019 avatars'], 'avatars.hint': ['O seu continua aparecendo.', 'Yours stays visible.'],
-    'theme.color': ['Tema', 'Theme'], 'accent2': ['Intensidade da cor', 'Color intensity'],
+    'theme.color': ['Tema', 'Theme'], 'accent2': ['Intensidade da cor', 'Color intensity'], 'scale': ['Tamanho do menu', 'Menu size'],
     'bg': ['Imagem de fundo do menu', 'Menu background image'], 'bg.dim': ['Escurecer a imagem', 'Darken the image'],
     'choose': ['Escolher', 'Choose'], 'bg.none': ['Nenhuma imagem (png, jpg ou webp, até 4 MB)', 'No image (png, jpg or webp, up to 4 MB)'], 'bg.set': ['Imagem aplicada', 'Image applied'],
-    'snd': ['Som próprio', 'Custom sounds'], 'snd.kick': ['Chute', 'Kick'], 'snd.goal': ['Gol', 'Goal'], 'snd.mention': ['Menção (quando citam seu apelido)', 'Mention (when your nickname is said)'],
-    'snd.orig': ['som original', 'original sound'], 'snd.hint': ['Arquivos ogg, wav ou mp3 de até 1,5 MB. O som novo vale alguns segundos depois de escolher.', 'ogg, wav or mp3 files up to 1.5 MB. The new sound applies a few seconds after you choose it.'],
-    'm.file.size': ['Arquivo grande demais', 'File is too large'], 'm.file.type': ['Tipo de arquivo não aceito', 'File type not accepted'], 'm.snd.ok': ['Som trocado', 'Sound replaced'],
+    'm.file.size': ['Arquivo grande demais', 'File is too large'], 'm.file.type': ['Tipo de arquivo não aceito', 'File type not accepted'],
     'filter': ['Filtro do chat (só na sua tela)', 'Chat filter (your screen only)'], 'filter.join': ['Esconder avisos de entrou/saiu', 'Hide joined/left notices'],
     'filter.players': ['Silenciar jogadores', 'Mute players'], 'filter.words': ['Esconder mensagens com as palavras', 'Hide messages containing'],
     'filter.pph': ['Apelido exato', 'Exact nickname'], 'filter.wph': ['Palavra', 'Word'],
     'backup': ['Suas configurações', 'Your settings'], 'export': ['Exportar', 'Export'], 'import': ['Importar', 'Import'],
     'backup.hint': ['Um arquivo com perfis, ações rápidas, personalização, filtro do chat e salas favoritas.', 'One file with profiles, quick actions, customization, chat filter and favorite rooms.'],
     'm.export.ok': ['Configurações exportadas', 'Settings exported'], 'm.import.ok': ['Configurações importadas', 'Settings imported'], 'm.import.fail': ['Arquivo inválido', 'Invalid file'],
-    'upd': ['Versão nova disponível: ', 'New version available: '], 'upd.get': ['Baixar', 'Download'],
+    'upd': ['Versão nova disponível: ', 'New version available: '], 'upd.get': ['Abrir página', 'Open page'],
+    'upd.dl': ['Baixar e instalar', 'Download and install'], 'upd.busy': ['Baixando... ', 'Downloading... '], 'upd.go': ['Reiniciar e instalar', 'Restart and install'],
+    'upd.ready': ['Versão {v} baixada e conferida.', 'Version {v} downloaded and verified.'],
+    'upd.fail': ['Não deu para baixar a atualização (veja o Log). Abra a página e baixe manualmente.', 'Could not download the update (see the Log). Open the page and download it manually.'],
     'st.drop': ['Conexão caiu: ', 'Connection lost: '],
     'sl.game': ['Jogo', 'Game'], 'sl.cmds': ['Comandos de chat', 'Chat commands'], 'sl.room': ['Sala', 'Room'], 'sl.update': ['Atualização', 'Update'],
     'sv.ready': ['Ativo', 'Active'], 'sv.inactive': ['Inativo', 'Inactive'], 'sv.loading': ['Carregando...', 'Loading...'],
@@ -168,9 +174,6 @@
   function swColor(sw_, color, k) {
     return '<div class="line"><span class="lbl">' + i18n(k) + '</span><input type="color" id="' + color + '"><span class="sw"><input type="checkbox" id="' + sw_ + '"><i></i></span></div>';
   }
-  function soundRow(slot) {
-    return '<div class="line"><span class="lbl">' + i18n('snd.' + slot) + '<small id="sn-' + slot + '"></small></span><button class="btn ghost sm" type="button" data-snd="' + slot + '" data-i18n="choose"></button><button class="x" type="button" data-sndx="' + slot + '">&times;</button></div>';
-  }
   function chipInput(id, k, ph) {
     return '<div class="line"><span class="lbl">' + i18n(k) + '</span><input type="text" id="' + id + '" maxlength="30" data-ph="' + ph + '" spellcheck="false" style="flex:none;width:190px"><button class="btn ghost sm" type="button" id="' + id + 'add">+</button></div><div class="chips" id="' + id + 's"></div>';
   }
@@ -205,6 +208,7 @@
     '.ver{font-size:10px;letter-spacing:.12em;color:#5d5f68}',
     // conteúdo
     '.content{flex:1;min-width:0;display:flex;flex-direction:column}',
+    '.side,.content{zoom:var(--sc,1)}',
     '.top{flex:none;display:flex;align-items:center;justify-content:space-between;padding:22px 20px 12px 28px;cursor:grab;user-select:none;touch-action:none}',
     '.top h2{margin:0;font:300 17px system-ui;letter-spacing:.2em;text-transform:uppercase;color:#fff}',
     '.x{width:28px;height:28px;border:0;border-radius:7px;background:none;color:var(--mut);font-size:18px;line-height:1;cursor:pointer;transition:.15s}.x:hover{background:rgba(255,255,255,.07);color:#fff}',
@@ -281,6 +285,54 @@
   ].join('');
 
   var GROUND = ['#3d6b45', '#2f5d8a', '#4a4d57', '#6b4a3a', '#1b1c20'];
+  // >>> texturas do campo (este bloco é igual no core.js e no ui.js; um teste confere)
+  // Desenha um ladrilho de 128x128 que se repete no campo. Tudo por código, a partir da cor do campo,
+  // com sorteio fixo (o mesmo desenho sempre), sem imagens de fora.
+  var FIELD_DEFAULT = { futsal: '#b5834f', sand: '#d6bf8a', ice: '#cfe3ee' };
+  function paintField(cv, kind, hex) {
+    var c = cv.getContext('2d'), S = 128, seed = 7;
+    cv.width = cv.height = S;
+    function rnd() { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; }
+    var base = [parseInt(hex.slice(1, 3), 16), parseInt(hex.slice(3, 5), 16), parseInt(hex.slice(5, 7), 16)];
+    function tone(k, a) {          // k > 0 clareia, k < 0 escurece
+      var t = k > 0 ? 255 : 0, m = Math.abs(k);
+      return 'rgba(' + base.map(function (v) { return Math.round(v + (t - v) * m); }).join(',') + ',' + (a == null ? 1 : a) + ')';
+    }
+    c.fillStyle = tone(0); c.fillRect(0, 0, S, S);
+    var i, x, y;
+    if (kind === 'futsal') {       // tábuas de madeira: 8 fileiras de 2 tábuas, emendas desencontradas, veios finos
+      for (var row = 0; row < 8; row++) {
+        y = row * 16; var a = (row * 53 + 20) % 128, b = (a + 50 + (row * 29) % 28) % 128;
+        c.fillStyle = tone((rnd() - 0.5) * 0.18); c.fillRect(0, y, S, 16);
+        c.fillStyle = tone((rnd() - 0.5) * 0.18);
+        if (b > a) c.fillRect(a, y, b - a, 16); else { c.fillRect(a, y, S - a, 16); c.fillRect(0, y, b, 16); }
+        for (i = 0; i < 3; i++) { c.fillStyle = tone(-0.12, 0.35); c.fillRect(0, y + 3 + Math.floor(rnd() * 10), S, 1); }
+        c.fillStyle = tone(-0.35, 0.6); c.fillRect(a, y, 1, 16); c.fillRect(b, y, 1, 16); c.fillRect(0, y + 15, S, 1);
+      }
+    } else if (kind === 'sand') {  // areia: grãos claros e escuros e ondas suaves
+      for (i = 0; i < 6; i++) { c.fillStyle = tone(-0.06, 0.3); c.fillRect(0, i * 21 + Math.floor(rnd() * 8), S, 2 + Math.floor(rnd() * 3)); }
+      for (i = 0; i < 900; i++) { c.fillStyle = rnd() < 0.5 ? tone(0.25, 0.55) : tone(-0.2, 0.5); c.fillRect(rnd() * S, rnd() * S, 1, 1); }
+    } else if (kind === 'ice') {   // gelo: manchas claras e riscos de patins
+      for (i = 0; i < 10; i++) { c.fillStyle = tone(0.35, 0.12); c.beginPath(); c.arc(rnd() * S, rnd() * S, 10 + rnd() * 24, 0, 6.2832); c.fill(); }
+      c.lineWidth = 1;
+      for (i = 0; i < 14; i++) {
+        x = rnd() * S; y = rnd() * S; var len = 20 + rnd() * 50, ang = -0.5 + rnd() * 0.5;
+        c.strokeStyle = tone(0.6, 0.35); c.beginPath(); c.moveTo(x, y); c.lineTo(x + Math.cos(ang) * len, y + Math.sin(ang) * len); c.stroke();
+      }
+    }
+    return cv;
+  }
+  // <<< texturas do campo
+  var LINE_AUTO = { ice: '#c8102e', sand: '#1f4e8c' };   // linhas automáticas: vermelho no gelo, azul na areia
+  var fieldTile = { key: '', url: '' };
+  function fieldBg(g) {           // fundo da prévia: grama, cor lisa ou o mesmo ladrilho que vai para o jogo
+    if (g.field === 'flat') return g.ground;
+    if (!FIELD_DEFAULT[g.field]) return 'repeating-linear-gradient(90deg,#4a7a52 0 26px,#44724c 26px 52px)';
+    var key = g.field + g.ground;
+    if (fieldTile.key !== key) { try { fieldTile = { key: key, url: paintField(document.createElement('canvas'), g.field, g.ground).toDataURL() }; } catch (e) { return g.ground; } }
+    return g.ground + ' url(' + fieldTile.url + ') 0 0/77px 77px repeat';
+  }
+
   var CROSS = ['#ffffff', '#ff3b4a', '#ffd84a', '#5ad1ff', '#6dff8f'];
 
   var PAGES = {
@@ -290,7 +342,10 @@
       sec('tools') + '<div class="tools">' + ['reload', 'fullscreen', 'top', 'shot', 'zoomout', 'zoomin'].map(tool).join('') + '</div>' +
       sec('recent', '<button class="link" id="hclear" type="button" data-i18n="clear"></button>') + '<div id="hist"></div>',
     look:
-      sec('field') + '<div class="prev" id="prev"></div>' + sw('flat', 'flat', 'flat.hint') + colorRow('ground', 'ground', GROUND) +
+      sec('field') + '<div class="prev" id="prev"></div>' +
+      '<div class="line"><span class="lbl">' + i18n('fstyle') + '<small data-i18n="fstyle.hint"></small></span><select id="fieldStyle" style="flex:none;width:190px">' +
+      ['original', 'flat', 'futsal', 'sand', 'ice'].map(function (f) { return '<option value="' + f + '" data-i18n="fs.' + f + '"></option>'; }).join('') + '</select></div>' +
+      '<div id="groundRow">' + colorRow('ground', 'ground', GROUND) + '</div>' +
       swColor('lineOn', 'lineColor', 'lines') + swColor('ballOn', 'ballColor', 'ball') +
       sec('cross') + sw('cross', 'cross.on', 'cross.hint') + colorRow('crossColor', 'color', CROSS) + slider('crossSize', 'size', 60, 200, 5) +
       sec('kick') + swColor('kickLine', 'kickColor', 'kick.on') + slider('kickRange', 'kick.range', 40, 600, 10) + slider('kickExt', 'kick.ext', 0, 400, 10) +
@@ -300,7 +355,7 @@
       '<div class="line"><span class="lbl">' + i18n('team.red') + '</span><input type="color" id="teamRed"></div><div class="line"><span class="lbl">' + i18n('team.blue') + '</span><input type="color" id="teamBlue"></div>' +
       sec('theme') + '<div class="line"><span class="lbl">' + i18n('theme.color') + '</span><span class="sws">' +
       Object.keys(THEME_SW).map(function (n) { return '<button type="button" class="swatch" data-theme="' + n + '" style="background:' + THEME_SW[n] + '" title="' + n + '"></button>'; }).join('') + '</span></div>' +
-      slider('accent', 'accent2', 0, 100) +
+      slider('accent', 'accent2', 0, 100) + slider('uiScale', 'scale', 80, 150, 5) +
       '<div class="line"><span class="lbl">' + i18n('bg') + '<small id="bgname"></small></span><button class="btn ghost sm" type="button" id="bgpick" data-i18n="choose"></button><button class="x" type="button" id="bgclear">&times;</button></div>' +
       slider('bgDim', 'bg.dim', 0, 95, 5),
     profile:
@@ -310,8 +365,7 @@
       '<p class="hint" data-i18n="profile.hint"></p>',
     audio:
       sec('vol') + slider('vgoal', 'vol.goal', 0, 100) + slider('vkick', 'vol.kick', 0, 100) + slider('vchat', 'vol.chat', 0, 100) +
-      '<p class="hint" data-i18n="vol.hint"></p>' +
-      sec('snd') + soundRow('kick') + soundRow('goal') + soundRow('mention') + '<p class="hint" data-i18n="snd.hint"></p>',
+      '<p class="hint" data-i18n="vol.hint"></p>',
     hud:
       sec('chat') + slider('chatFont', 'chat.font', 9, 24) + slider('chatOpacity', 'chat.opacity', 20, 100, 5) +
       sec('filter') + sw('hideJoin', 'filter.join') + chipInput('fplayer', 'filter.players', 'filter.pph') + chipInput('fword', 'filter.words', 'filter.wph') +
@@ -334,11 +388,12 @@
       sw('ads', 'ads') + sw('splash', 'splash') + sw('titleBar', 'bar.own', 'bar.ownhint') + sw('hideSite', 'bar.site', 'bar.sitehint') + sw('autoRejoin', 'rejoin.auto', 'rejoin.hint') +
       '<div class="line"><span class="lbl">' + i18n('key') + '</span><kbd id="key"></kbd><button class="btn ghost sm" id="chkey" data-i18n="key.change"></button></div>' +
       sec('auto') + '<div class="row"><input type="text" id="msg" maxlength="140" data-ph="auto.ph" spellcheck="false"><button class="btn ghost" id="sendnow" data-i18n="auto.now"></button></div>' + sw('onjoin', 'auto.join') +
+      sec('nt') + sw('ntMention', 'nt.mention') + sw('ntTeam', 'nt.team', 'nt.teamhint') + '<p class="hint" data-i18n="nt.hint"></p>' +
       sec('dc') + sw('dcOn', 'dc.on') + sw('dcRoom', 'dc.room') +
       '<div class="line"><span class="lbl">' + i18n('dc.id') + '<small id="dcstat"></small></span><input type="text" id="dcId" maxlength="20" inputmode="numeric" data-ph="dc.idph" spellcheck="false" style="flex:none;width:210px"></div><p class="hint" data-i18n="dc.hint"></p>' +
       sec('backup') + '<div class="row"><button class="btn ghost" type="button" id="export" data-i18n="export"></button><button class="btn ghost" type="button" id="import" data-i18n="import"></button></div><p class="hint" data-i18n="backup.hint"></p>',
     status:
-      '<p class="warnbox" id="upd" hidden><span id="updtxt"></span><button class="btn sm" type="button" id="updopen" data-i18n="upd.get"></button></p>' +
+      '<p class="warnbox" id="upd" hidden><span id="updtxt"></span><button class="btn sm" type="button" id="updgo"></button><button class="btn ghost sm" type="button" id="updopen" data-i18n="upd.get"></button></p>' +
       '<div class="stat" id="stat"></div>' + sec('tools') +
       '<div class="row"><button class="btn ghost" data-act="log" data-i18n="log"></button><button class="btn ghost" data-act="devtools">DevTools</button><button class="btn ghost" data-act="shotfolder" data-i18n="shots"></button></div>'
   };
@@ -421,6 +476,17 @@
   function clamp(x, y) {
     var w = menu.offsetWidth || MENU_W;
     return { x: Math.round(Math.min(Math.max(8, x), Math.max(8, window.innerWidth - w - 8))), y: Math.round(Math.min(Math.max(8 + barH(), y), Math.max(8 + barH(), window.innerHeight - 60))) };
+  }
+  // tamanho do menu: a caixa cresce/encolhe e o conteúdo é ampliado por dentro (zoom), então left/top continuam em pixels da tela
+  var scaleNow = 100;
+  function applyScale(v) {
+    v = Math.min(150, Math.max(80, Math.round(Number(v) / 5) * 5 || 100));
+    $('uiScalev').textContent = v + '%';
+    if (v === scaleNow && menu.style.width) return;
+    scaleNow = v;
+    menu.style.width = Math.round(MENU_W * v / 100) + 'px'; menu.style.height = Math.round(MENU_H * v / 100) + 'px';
+    menu.style.setProperty('--sc', String(v / 100));
+    var b = menu.getBoundingClientRect(); if (b.width) place(b.left, b.top);   // continua dentro da janela
   }
   function place(x, y) { var p = clamp(x, y); menu.style.left = p.x + 'px'; menu.style.top = p.y + 'px'; return p; }
   function layout() {
@@ -586,8 +652,7 @@
   // prévia do campo e da mira (aba Personalizar)
   function renderPreview(g) {
     var R = 25 * g.crossSize / 100 * 0.62, tk = Math.max(3, R * 0.28), cx = 150, cy = 46;
-    var grass = 'repeating-linear-gradient(90deg,#4a7a52 0 26px,#44724c 26px 52px)';
-    $('prev').style.background = g.flat ? g.ground : grass;
+    $('prev').style.background = fieldBg(g);
     var ln = g.lineOn ? esc(g.lineColor) : '#c7e6bd', nm = 9 * g.nameSize / 100;
     var s = '<svg viewBox="0 0 300 92" width="300" height="92" fill="none"><circle cx="150" cy="46" r="34" stroke="' + ln + '" stroke-width="1.5"/><path d="M150 0v92" stroke="' + ln + '" stroke-width="1.5"/>' +
       '<circle cx="' + cx + '" cy="' + cy + '" r="9.5" fill="' + (g.teamOn ? esc(g.teamRed) : '#e56e56') + '" stroke="#000" stroke-width="1.6"/><circle cx="196" cy="60" r="6" fill="' + (g.ballOn ? esc(g.ballColor) : '#fff') + '" stroke="#000" stroke-width="1.4"/>' +
@@ -614,7 +679,9 @@
     $('t-top').classList.toggle('on', !!c.alwaysOnTop);
     renderHistory();
     // personalizar
-    ['flat', 'cross', 'lineOn', 'ballOn', 'hideAvatars', 'kickLine', 'kickRing', 'teamOn'].forEach(function (k) { $(k).checked = g[k]; });
+    ['cross', 'lineOn', 'ballOn', 'hideAvatars', 'kickLine', 'kickRing', 'teamOn'].forEach(function (k) { $(k).checked = g[k]; });
+    if (root.activeElement !== $('fieldStyle')) $('fieldStyle').value = g.field || 'original';
+    $('groundRow').hidden = (g.field || 'original') === 'original';
     setVal('kickRange', g.kickRange, g.kickRange + ' px'); setVal('kickExt', g.kickExt, g.kickExt ? g.kickExt + ' px' : t('kick.off'));
     ['ground', 'crossColor', 'lineColor', 'ballColor', 'kickColor', 'kickRingColor', 'teamRed', 'teamBlue'].forEach(function (k) { if (root.activeElement !== $(k)) $(k).value = g[k]; });
     setVal('nameSize', g.nameSize, g.nameSize + '%');
@@ -629,6 +696,7 @@
     markSwatch('ground', g.ground); markSwatch('crossColor', g.crossColor);
     setVal('crossSize', g.crossSize, g.crossSize + '%');
     if (root.activeElement !== $('accent')) { $('accent').value = c.accent; applyAccent(c.accent); }
+    if (root.activeElement !== $('uiScale')) { $('uiScale').value = c.uiScale || 100; applyScale(c.uiScale || 100); }
     renderPreview(g);
     // perfil
     $('curnick').textContent = room.nick || t('profile.none'); $('curav').textContent = room.avatar || '';
@@ -636,10 +704,6 @@
     renderLists();
     // áudio
     ['goal', 'kick', 'chat'].forEach(function (k) { setVal('v' + k, g.vol[k], g.vol[k] + '%'); });
-    ['kick', 'goal', 'mention'].forEach(function (k) {
-      var sd = c.sounds[k]; $('sn-' + k).textContent = sd ? sd.name : t('snd.orig');
-      root.querySelector('[data-sndx="' + k + '"]').hidden = !sd;
-    });
     $('hideJoin').checked = c.chat.hideJoin; renderChips();
     // chat e hud
     setVal('chatFont', g.chatFont || 9, g.chatFont ? g.chatFont + ' px' : t('default'));
@@ -674,10 +738,19 @@
     fitGame();
     var dc = c.discord || {};
     $('dcOn').checked = !!dc.on; $('dcRoom').checked = dc.room !== false;
+    var nt = c.notify || {}; $('ntMention').checked = !!nt.mention; $('ntTeam').checked = !!nt.team;
     if (root.activeElement !== $('dcId')) $('dcId').value = dc.appId || '';
     $('dcstat').textContent = t('dc.' + (dc.on ? (state.discord || 'connecting') : 'off'));
     $('upd').hidden = $('upddot').hidden = !state.update;
-    if (state.update) $('updtxt').textContent = t('upd') + state.update.version;
+    if (state.update) {
+      var u = state.update, ph = u.phase || 'idle';
+      $('updtxt').textContent = ph === 'ready' ? t('upd.ready').replace('{v}', u.version) : t('upd') + u.version;
+      // versão pública: baixa e instala; versão pessoal ou sem SHA-256 publicado: só abre a página
+      $('updgo').hidden = !u.install || ph === 'error';
+      $('updgo').disabled = ph === 'downloading';
+      $('updgo').textContent = ph === 'downloading' ? t('upd.busy') + (u.progress || 0) + '%' : ph === 'ready' ? t('upd.go') : t('upd.dl');
+      $('updopen').hidden = u.install && ph !== 'error';
+    }
     $('key').textContent = state.capturing && state.capturing !== 'bubble' ? t('key.press') : keyLabel(c.toggleKey);
     $('bkey').textContent = state.capturing === 'bubble' ? t('key.press') : c.bubbleKey ? keyLabel(c.bubbleKey) : t('bkey.none');
     $('rmbkey').hidden = !c.bubbleKey;
@@ -718,7 +791,18 @@
     clearTimeout(gameTimer);
     gameTimer = setTimeout(function () { var p = gamePending; gamePending = {}; api.setConfig({ game: p }).then(refresh); }, now ? 0 : 90);
   }
-  ['flat', 'cross', 'hideScore', 'hideTimer', 'lineOn', 'ballOn', 'hideAvatars', 'kickLine', 'kickRing', 'teamOn'].forEach(function (id) {
+  $('fieldStyle').addEventListener('change', function () {
+    var f = $('fieldStyle').value, p = { field: f }, g = state ? state.config.game : {};
+    if (FIELD_DEFAULT[f]) p.ground = FIELD_DEFAULT[f];                 // cada textura começa na cor natural dela
+    else if (f === 'flat' && FIELD_DEFAULT[g.field]) p.ground = '#3d6b45';
+    // No gelo e na areia as linhas verdes do jogo quase somem: liga a cor das linhas com uma cor que aparece.
+    // Ao sair desses estilos, desliga de novo, mas só se a cor ainda for a que o VOID escolheu (a sua fica).
+    var auto = LINE_AUTO[f], wasAuto = g.lineOn && LINE_AUTO[g.field] && g.lineColor === LINE_AUTO[g.field];
+    if (auto && (!g.lineOn || wasAuto)) { p.lineOn = true; p.lineColor = auto; }
+    else if (!auto && wasAuto) p.lineOn = false;
+    setGame(p, true);
+  });
+  ['cross', 'hideScore', 'hideTimer', 'lineOn', 'ballOn', 'hideAvatars', 'kickLine', 'kickRing', 'teamOn'].forEach(function (id) {
     $(id).addEventListener('change', function () { var p = {}; p[id] = $(id).checked; setGame(p, true); });
   });
   ['ground', 'crossColor', 'lineColor', 'ballColor', 'kickColor', 'kickRingColor', 'teamRed', 'teamBlue'].forEach(function (id) {
@@ -734,6 +818,8 @@
   // Discord
   function setDiscord(p) { return api.setConfig({ discord: p }).then(refresh); }
   $('dcOn').addEventListener('change', function () { setDiscord({ on: $('dcOn').checked }); });
+  $('ntMention').addEventListener('change', function () { api.setConfig({ notify: { mention: $('ntMention').checked } }).then(refresh); });
+  $('ntTeam').addEventListener('change', function () { api.setConfig({ notify: { team: $('ntTeam').checked } }).then(refresh); });
   $('dcRoom').addEventListener('change', function () { setDiscord({ room: $('dcRoom').checked }); });
   $('dcId').addEventListener('change', function () {
     var id = $('dcId').value.trim();
@@ -760,13 +846,6 @@
   $('bgclear').addEventListener('click', function () { api.action('bg:clear').then(refresh); });
   $('bgDim').addEventListener('input', function () { $('bgdim').style.opacity = $('bgDim').value / 100; $('bgDimv').textContent = $('bgDim').value + '%'; });
   $('bgDim').addEventListener('change', function () { api.setConfig({ bg: { dim: Number($('bgDim').value) } }).then(refresh); });
-  // sons próprios
-  all('[data-snd]').forEach(function (b) {
-    b.addEventListener('click', function () { api.action('sound:pick', b.getAttribute('data-snd')).then(function (r) { fileMsg(r, 'm.snd.ok'); refresh(); }); });
-  });
-  all('[data-sndx]').forEach(function (b) {
-    b.addEventListener('click', function () { api.action('sound:clear', b.getAttribute('data-sndx')).then(refresh); });
-  });
   // filtro do chat
   $('hideJoin').addEventListener('change', function () { setChat({ hideJoin: $('hideJoin').checked }); });
   [['fplayer', 'players'], ['fword', 'words']].forEach(function (pair) {
@@ -787,12 +866,20 @@
     api.action('import').then(function (r) { if (r === true) { toast(t('m.import.ok')); histKey = listKey = chipKey = ''; refresh(); } else if (r === false) toast(t('m.import.fail')); });
   });
   $('updopen').addEventListener('click', function () { api.action('update:open'); });
+  $('updgo').addEventListener('click', function () {
+    if (state.update && state.update.phase === 'ready') { api.action('update:install'); return; }
+    var timer = setInterval(refresh, 400);          // mostra a porcentagem enquanto baixa
+    api.action('update:download').then(function (ok) { clearInterval(timer); refresh(); if (!ok) toast(t('upd.fail'), 6000); });
+    refresh();
+  });
   $('chatOpacity').addEventListener('input', function () { setGame({ chatOpacity: Number($('chatOpacity').value) }); });
   $('chatFont').addEventListener('input', function () { var v = Number($('chatFont').value); setGame({ chatFont: v < 10 ? 0 : v }); });   // 9 = tamanho do jogo
   ['goal', 'kick', 'chat'].forEach(function (k) {
     $('v' + k).addEventListener('input', function () { var v = {}; v[k] = Number($('v' + k).value); setGame({ vol: v }); });
   });
   $('accent').addEventListener('input', function () { applyAccent($('accent').value); });
+  $('uiScale').addEventListener('input', function () { applyScale($('uiScale').value); });
+  $('uiScale').addEventListener('change', function () { api.setConfig({ uiScale: Number($('uiScale').value) }).then(refresh); });
   $('accent').addEventListener('change', function () { api.setConfig({ accent: Number($('accent').value) }).then(refresh); });
   $('rec').addEventListener('change', function () { if ($('rec').checked) setOpen(false); });
 
